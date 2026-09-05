@@ -26,14 +26,23 @@ from app.schemas.question import (
     SectionCreate,
     SectionUpdate,
     SectionReorderRequest,
+    check_answer_key,
 )
 
 router = APIRouter(tags=["questions"])
 
 _OPTION_TYPES = ("multiple_choice", "checkbox", "dropdown")
 _TEXT_TYPES = ("short_answer", "essay", "password", "date", "time", "datetime", "file_upload")
-# Types yang tidak pernah dinilai otomatis (tanpa options / tanpa isi teks dinilai)
-_NO_GRADE_TYPES = ("essay", "date", "time", "datetime", "file_upload", "dropdown")
+# Types yang tidak pernah dinilai otomatis (tanpa options / tanpa isi teks dinilai).
+# essay keluar dari daftar: ikut dinilai bila punya answer_key (lihat grading.py).
+_NO_GRADE_TYPES = ("date", "time", "datetime", "file_upload", "dropdown")
+# Tipe isian yang bisa dinilai otomatis bila punya answer_key (khusus quiz).
+_KEYWORD_TYPES = ("essay", "short_answer")
+
+
+def _is_keyword_gradable(q_type: str, answer_key: str | None) -> bool:
+    """True bila tipe isian didukung kunci dan kuncinya non-kosong."""
+    return q_type in _KEYWORD_TYPES and bool((answer_key or "").strip())
 
 
 def _get_question_or_404(q_id: int, db: Session) -> Question:
@@ -85,6 +94,7 @@ def _build_question(q: Question, request: Request) -> dict:
         "group_id": q.group_id,
         # Keyword hanya untuk owner (endpoint ini); payload publik tidak memilikinya.
         "password_keyword": q.password_keyword if q.type.value == "password" else None,
+        "answer_key": q.answer_key if q.type.value in _KEYWORD_TYPES else None,
         "options": opts,
         "image": _image_obj(q_img[0], request) if q_img else None,
     }
@@ -276,17 +286,27 @@ def create_question(
                 detail="multiple_choice questions must have exactly 1 correct option",
             )
 
+    # Answer key hanya tersedia untuk quiz — di form biasa diabaikan.
+    if body.answer_key is not None and form.type.value != "quiz":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Answer key hanya tersedia untuk tipe quiz",
+        )
+    answer_key = body.answer_key if body.type in _KEYWORD_TYPES else None
+
     question = Question(
         form_id=form.id,
         type=QuestionType(body.type),
         question_text=body.question_text,
         # Auto mode allocates from the 100-point pool after insert; manual mode
-        # preserves the creator's per-question value. Non-graded types always 0.
-        points=(0 if (form.type.value == "quiz" and (form.scoring_mode is None or form.scoring_mode.value == "auto")) or body.type in _NO_GRADE_TYPES else body.points),
+        # preserves the creator's per-question value. Non-graded types always 0;
+        # essay/short_answer tanpa kunci juga 0 (belum bisa dinilai).
+        points=(0 if (form.type.value == "quiz" and (form.scoring_mode is None or form.scoring_mode.value == "auto")) or body.type in _NO_GRADE_TYPES or (body.type in _KEYWORD_TYPES and not (answer_key or "").strip()) else body.points),
         is_scored=body.is_scored,
         is_required=body.is_required,
         section_id=body.section_id,
         password_keyword=body.password_keyword if body.type == "password" else None,
+        answer_key=answer_key,
         order_index=next_order,
         created_at=now_wib(),
     )
@@ -341,6 +361,32 @@ def update_question(
                 detail="Password questions require a password_keyword",
             )
 
+    # Answer key divalidasi terhadap tipe efektif (payload atau tersimpan).
+    if "answer_key" in update_data:
+        try:
+            check_answer_key(update_data["answer_key"], new_type_str)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(e),
+            )
+        if update_data["answer_key"] is not None and form.type.value != "quiz":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Answer key hanya tersedia untuk tipe quiz",
+            )
+    # Menyalakan penilaian essay/short_answer wajib disertai kunci (payload
+    # atau yang sudah tersimpan) — kalau tidak, toggle tak bisa menyala.
+    if (
+        new_type_str in _KEYWORD_TYPES
+        and update_data.get("is_scored") is True
+        and not (update_data.get("answer_key", question.answer_key) or "").strip()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Isi answer key terlebih dahulu untuk mengaktifkan penilaian soal ini",
+        )
+
     # Fix #4 — non-empty options with a text type is invalid; an empty list is
     # allowed and simply means "clear options" (e.g. switching MC → short_answer).
     if options_data:
@@ -372,6 +418,9 @@ def update_question(
                 detail=f"Switching to '{new_type.value}' requires at least 1 option in this request",
             )
         question.type = new_type
+        # Tinggalkan tipe isian berkunci → kunci ikut dibersihkan
+        if new_type.value not in _KEYWORD_TYPES and "answer_key" not in update_data:
+            question.answer_key = None
 
     # Toggle is_scored: off → force 0 points; on (no explicit points) → rejoin pool
     was_scored = question.is_scored
@@ -383,13 +432,22 @@ def update_question(
 
     # Quiz pool = 100 (distribute_quiz_points). A fixed points value > 100
     # would zero out every other scored question — reject instead.
-    if question.type.value not in _NO_GRADE_TYPES and update_data.get("points", 0) > 100:
+    # Essay tanpa kunci tidak dinilai (seperti tipe non-graded) — pengecualian
+    # batas maupun pemaksaan 0 tidak berlaku untuknya.
+    _keyless_essay = (
+        question.type.value == "essay"
+        and not _is_keyword_gradable(
+            question.type.value, update_data.get("answer_key", question.answer_key)
+        )
+    )
+    if question.type.value not in _NO_GRADE_TYPES and not _keyless_essay and update_data.get("points", 0) > 100:
         form_type = db.get(Form, question.form_id)
         if form_type and form_type.type.value == "quiz":
             raise HTTPException(status_code=422, detail="Poin per soal maksimal 100")
 
-    # Essay & non-graded types never carry points (grade_answer returns None/0)
-    if question.type.value in _NO_GRADE_TYPES:
+    # Non-graded types never carry points (grade_answer returns None/0) —
+    # essay tanpa kunci ikut dipaksa 0 karena belum bisa dinilai.
+    if question.type.value in _NO_GRADE_TYPES or _keyless_essay:
         update_data["points"] = 0
 
     for field, value in update_data.items():
@@ -536,6 +594,7 @@ def duplicate_question(
         is_required=src.is_required,
         group_id=src.group_id,
         password_keyword=src.password_keyword,
+        answer_key=src.answer_key,
         order_index=new_order,
         created_at=now_wib(),
     )

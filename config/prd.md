@@ -439,3 +439,4 @@ CREATE TABLE images (
 | 1.0 | Draft awal — menggabungkan requirement analysis, struktur database, API contract, dan design system dari referensi visual menjadi satu dokumen acuan tunggal |
 | 1.1 | Sistem poin quiz: kolom `questions.is_scored`, pool 100, redistribusi otomatis, konversi tipe form↔quiz, aturan publish (min 1 soal) berlaku juga di `PUT /forms/{id}` |
 | 1.2 | Leaderboard opsional (`forms.show_leaderboard`), mode fullscreen anti-cheat (`forms.is_restricted` + `submissions.tab_exit_count` + status `cheating`), rantai setting auto-coerce (restricted→once→login), QR share di frontend |
+| 1.3 | Answer key essay/short_answer quiz (`questions.answer_key`): cocok-salah-satu contains case-insensitive → poin penuh, else 0; `is_scored` wajib berkunci; owner-only |

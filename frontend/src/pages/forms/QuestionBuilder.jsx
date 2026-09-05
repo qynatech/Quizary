@@ -79,6 +79,7 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
     is_required: true,
     options: [],
     password_keyword: '',
+    answer_key: '',
     ...(initial || {}),
     section_id: initial?.section_id || singleSectionId,
   })
@@ -252,7 +253,11 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
   const isPassword = form.type === 'password'
   const canSave = !!textOnly(form.question_text) && (!isPassword || !!form.password_keyword?.trim())
   const needsOptions = OPTION_TYPES.includes(form.type)
-  const noGrade = NO_GRADE_TYPES.includes(form.type)
+  // Essay/short_answer bisa dinilai bila punya answer_key (khusus quiz) —
+  // tanpa kunci, perlakuannya sama seperti tipe non-graded lainnya.
+  const isKeywordType = form.type === 'essay' || form.type === 'short_answer'
+  const hasAnswerKey = !!(form.answer_key || '').trim()
+  const noGrade = NO_GRADE_TYPES.includes(form.type) && !(isKeywordType && hasAnswerKey)
   const hasCorrect = form.options.some((o) => o.is_correct)
 
   return (
@@ -277,6 +282,27 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
           />
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('questionBuilder.passwordHint')}</p>
           {ferr('password_keyword') && <p className="field-error">{ferr('password_keyword')}</p>}
+        </div>
+      )}
+
+      {isQuiz && isKeywordType && (
+        <div>
+          <label className="field-label">{t('questionBuilder.answerKey')}</label>
+          <input
+            value={form.answer_key || ''}
+            onChange={(e) => {
+              const v = e.target.value
+              setForm((p) => (v.trim()
+                ? { ...p, answer_key: v }
+                : { ...p, answer_key: v, is_scored: false, points: 0 }))
+            }}
+            placeholder={t('questionBuilder.answerKeyPlaceholder')}
+            className={`input-field font-mono ${ferr('answer_key') ? 'border-incorrect focus:border-incorrect' : ''}`}
+            maxLength={500}
+            spellCheck={false}
+          />
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('questionBuilder.answerKeyHint')}</p>
+          {ferr('answer_key') && <p className="field-error">{ferr('answer_key')}</p>}
         </div>
       )}
 
@@ -628,7 +654,7 @@ function QuestionCard({ question, index, onDelete, onDuplicate, duplicating, isD
           ))}
         </div>
       )}
-      {isQuiz && !NO_GRADE_TYPES.includes(question.type) && (question.is_scored ? question.points > 0 : true) && (
+      {isQuiz && (!NO_GRADE_TYPES.includes(question.type) || ((question.type === 'essay' || question.type === 'short_answer') && (question.answer_key || '').trim())) && (question.is_scored ? question.points > 0 : true) && (
         <div className="flex justify-end mt-2 pt-2 border-t border-gray-300 dark:border-gray-800">
           <span className="text-xs text-gray-500 dark:text-gray-500">
             {question.is_scored ? `${question.points} pts` : 'Not scored'}
@@ -847,7 +873,7 @@ function SortableGroupCard({ groupId, questions: members, groupIndex, expanded, 
                               <span className="font-display font-semibold text-ink dark:text-gray-100 text-sm">Edit Soal {gIdx + 1}</span>
                               <button onClick={onCancel} className="p-1.5 rounded-lg text-gray-400 hover:text-ink hover:bg-gray-100 dark:hover:bg-ink-800"><X className="w-4 h-4" /></button>
                             </div>
-                            <QuestionForm initial={{ question_text: q.question_text, type: q.type, points: q.points, is_scored: q.is_scored !== false, is_required: q.is_required, section_id: q.section_id || null, password_keyword: q.password_keyword || '', image: q.image, options: q.options?.length ? q.options.map((o) => ({ id: o.id, option_text: o.option_text, is_correct: o.is_correct, image: o.image })) : [{ option_text: '', is_correct: false }] }} onSave={onSave} onCancel={onCancel} loading={saveLoading} isQuiz={isQuiz} errors={errors} questionId={q.id} sections={sections} sectionsAllowed={sectionsAllowed} scoringMode={scoringMode} />
+                            <QuestionForm initial={{ question_text: q.question_text, type: q.type, points: q.points, is_scored: q.is_scored !== false, is_required: q.is_required, section_id: q.section_id || null, password_keyword: q.password_keyword || '', answer_key: q.answer_key || '', image: q.image, options: q.options?.length ? q.options.map((o) => ({ id: o.id, option_text: o.option_text, is_correct: o.is_correct, image: o.image })) : [{ option_text: '', is_correct: false }] }} onSave={onSave} onCancel={onCancel} loading={saveLoading} isQuiz={isQuiz} errors={errors} questionId={q.id} sections={sections} sectionsAllowed={sectionsAllowed} scoringMode={scoringMode} />
                           </Card>
                         </motion.div>
                       )
@@ -935,6 +961,7 @@ function QuestionItem({ q, index, onEdit, onDelete, onDuplicate, duplicating, is
               is_required: q.is_required,
               section_id: q.section_id || null,
               password_keyword: q.password_keyword || '',
+              answer_key: q.answer_key || '',
               image: q.image,
               options: q.options?.length
                 ? q.options.map((o) => ({ id: o.id, option_text: o.option_text, is_correct: o.is_correct, image: o.image }))
@@ -1193,6 +1220,9 @@ export default function QuestionBuilder() {
       is_required: data.is_required,
       section_id: data.section_id || null,
       password_keyword: data.type === 'password' ? data.password_keyword : undefined,
+      answer_key: (data.type === 'essay' || data.type === 'short_answer')
+        ? ((data.answer_key || '').trim() || null)
+        : undefined,
       options: OPTION_TYPES.includes(data.type)
         ? data.options.filter((o) => {
             const hasText = (o.option_text || '').replace(/<[^>]*>/g, '').trim()

@@ -1,3 +1,5 @@
+from sqlalchemy import or_
+
 from app.models.form import Form
 from app.models.question import Question, QuestionType
 
@@ -10,9 +12,9 @@ def distribute_quiz_points(form_id: int, db, fixed_ids: set[int] | None = None) 
     - `fixed_ids={qid}` (points edited): that question keeps its current
       points and the remaining pool is split equally among the others.
     - `is_scored=false` questions are excluded entirely (detail-only).
-    - Essay questions are excluded too: they are never graded (see grading.py),
-      so allocating them points would inflate max_score beyond what a
-      respondent can reach.
+    - Essay questions are excluded too, unless they carry an `answer_key`:
+      keyless essay is never graded (see grading.py), so allocating it points
+      would inflate max_score beyond what a respondent can reach.
     """
     form = db.get(Form, form_id)
     if not form or form.type.value != "quiz" or (form.scoring_mode and form.scoring_mode.value == "manual"):
@@ -26,7 +28,11 @@ def distribute_quiz_points(form_id: int, db, fixed_ids: set[int] | None = None) 
             Question.form_id == form_id,
             Question.is_scored.is_(True),
             Question.is_deleted.is_(False),
-            Question.type.notin_([QuestionType.essay, QuestionType.date, QuestionType.time, QuestionType.datetime, QuestionType.file_upload, QuestionType.dropdown]),
+            Question.type.notin_([QuestionType.date, QuestionType.time, QuestionType.datetime, QuestionType.file_upload, QuestionType.dropdown]),
+            or_(
+                Question.type != QuestionType.essay,
+                Question.answer_key.isnot(None),
+            ),
         )
         .order_by(Question.order_index, Question.id)
         .all()

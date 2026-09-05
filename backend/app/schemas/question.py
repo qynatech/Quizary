@@ -1,3 +1,4 @@
+import re
 from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
@@ -5,6 +6,42 @@ from pydantic import BaseModel, Field, model_validator
 
 QUESTION_TYPE_PATTERN = r"^(multiple_choice|checkbox|dropdown|short_answer|essay|password|date|time|datetime|file_upload)$"
 NO_OPTION_TYPES = ("short_answer", "essay", "password", "date", "time", "datetime", "file_upload")
+# Tipe isian yang bisa dinilai otomatis bila punya answer_key (khusus quiz).
+KEYWORD_TYPES = ("essay", "short_answer")
+MAX_KEYWORDS = 10
+MAX_KEYWORD_LEN = 100
+
+_WS_RE = re.compile(r"\s+")
+
+
+def normalize_answer_text(v: str | None) -> str:
+    """Normalisasi untuk pencocokan kunci: trim, lowercase, rapatkan spasi."""
+    return _WS_RE.sub(" ", (v or "").strip().lower())
+
+
+def parse_answer_key(raw: str | None) -> list[str]:
+    """Pecah answer_key mentah ('jakarta; DKI Jakarta' / baris baru) jadi
+    daftar kunci ternormalisasi, tanpa item kosong."""
+    if not raw:
+        return []
+    return [k for k in (normalize_answer_text(p) for p in re.split(r"[;\n]+", raw)) if k]
+
+
+def check_answer_key(answer_key: str | None, q_type: str | None) -> None:
+    """Validasi answer_key terhadap tipe soal. Raise ValueError bila invalid.
+    Dipakai validator Pydantic dan router (yang tahu tipe efektif saat update).
+    q_type=None berarti tipe tak diketahui (partial update) — hanya format dicek."""
+    if answer_key is None:
+        return
+    if q_type is not None and q_type not in KEYWORD_TYPES:
+        raise ValueError("Answer key hanya untuk tipe essay atau short answer")
+    keys = parse_answer_key(answer_key)
+    if not keys:
+        raise ValueError("Answer key tidak boleh kosong")
+    if len(keys) > MAX_KEYWORDS:
+        raise ValueError(f"Answer key maksimal {MAX_KEYWORDS} kunci")
+    if any(len(k) > MAX_KEYWORD_LEN for k in keys):
+        raise ValueError(f"Setiap kunci maksimal {MAX_KEYWORD_LEN} karakter")
 
 
 class OptionCreate(BaseModel):
@@ -44,6 +81,7 @@ class QuestionCreate(BaseModel):
     is_required: bool = True
     section_id: Optional[int] = None
     password_keyword: Optional[str] = Field(None, min_length=1, max_length=255)
+    answer_key: Optional[str] = Field(None, min_length=1, max_length=500)
     options: list[OptionCreate] = []
 
     @model_validator(mode="after")
@@ -54,12 +92,16 @@ class QuestionCreate(BaseModel):
             raise ValueError("this question type must not have options")
         if self.type == "password" and not (self.password_keyword or "").strip():
             raise ValueError("password questions require a password_keyword")
+        check_answer_key(self.answer_key, self.type)
         return self
 
     @model_validator(mode="after")
     def default_is_scored(self):
-        # ponytail: non-gradable types have no correct answer — is_scored must be False
-        if self.type in NO_OPTION_TYPES:
+        # ponytail: non-gradable types have no correct answer — is_scored must be False,
+        # kecuali essay/short_answer yang punya answer_key (bisa dinilai otomatis)
+        if self.type in NO_OPTION_TYPES and not (
+            self.type in KEYWORD_TYPES and (self.answer_key or "").strip()
+        ):
             self.is_scored = False
         return self
 
@@ -72,6 +114,7 @@ class QuestionUpdate(BaseModel):
     is_required: Optional[bool] = None
     section_id: Optional[int] = None
     password_keyword: Optional[str] = Field(None, min_length=1, max_length=255)
+    answer_key: Optional[str] = Field(None, min_length=1, max_length=500)
     options: Optional[list[OptionUpdate]] = None
 
     @model_validator(mode="after")
@@ -83,12 +126,18 @@ class QuestionUpdate(BaseModel):
                 raise ValueError("multiple_choice, checkbox and dropdown questions require at least 1 option")
             if q_type in NO_OPTION_TYPES and len(opts) > 0:
                 raise ValueError("this question type must not have options")
+        # answer_key hanya bisa divalidasi penuh di sini bila type ikut dikirim;
+        # router melengkapi dengan tipe efektif dari DB (lihat update_question)
+        check_answer_key(self.answer_key, self.type)
         return self
 
     @model_validator(mode="after")
     def coerce_is_scored_on_no_option_type(self):
-        # ponytail: if type changes to non-gradable, force is_scored=False
-        if self.type in NO_OPTION_TYPES:
+        # ponytail: if type changes to non-gradable, force is_scored=False —
+        # kecuali essay/short_answer yang dikirim bersama answer_key
+        if self.type in NO_OPTION_TYPES and not (
+            self.type in KEYWORD_TYPES and (self.answer_key or "").strip()
+        ):
             self.is_scored = False
         return self
 
@@ -104,6 +153,7 @@ class QuestionResponse(BaseModel):
     section_id: Optional[int] = None
     group_id: Optional[str] = None
     password_keyword: Optional[str] = None
+    answer_key: Optional[str] = None
     options: list[OptionResponse] = []
     images: list[dict] = []
 

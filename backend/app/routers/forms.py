@@ -466,8 +466,9 @@ def batch_update_points(
             detail="Ubah poin per soal secara manual hanya bisa di mode Manual",
         )
 
+    from sqlalchemy import or_
     from app.models.question import QuestionType
-    _NO_GRADE = (QuestionType.essay, QuestionType.date, QuestionType.time, QuestionType.datetime, QuestionType.file_upload, QuestionType.dropdown)
+    _NO_GRADE = (QuestionType.date, QuestionType.time, QuestionType.datetime, QuestionType.file_upload, QuestionType.dropdown)
     updated = (
         db.query(Question)
         .filter(
@@ -475,6 +476,10 @@ def batch_update_points(
             Question.is_scored.is_(True),
             Question.is_deleted.is_(False),
             Question.type.notin_(_NO_GRADE),
+            or_(
+                Question.type != QuestionType.essay,
+                Question.answer_key.isnot(None),
+            ),
         )
         .update({"points": body.points}, synchronize_session=False)
     )

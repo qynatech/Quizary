@@ -15,6 +15,7 @@ from app.models.answer import Answer
 from app.models.form import Form
 from app.models.question import Question, QuestionType
 from app.models.submission import Submission
+from app.schemas.question import normalize_answer_text, parse_answer_key
 
 
 GRADABLE_TYPES = (
@@ -23,17 +24,29 @@ GRADABLE_TYPES = (
     QuestionType.password,
 )
 
+# Tipe isian yang ikut dinilai otomatis bila punya answer_key (khusus quiz).
+KEYWORD_TYPES = (
+    QuestionType.essay,
+    QuestionType.short_answer,
+)
+
+
+def has_answer_key(question: Question) -> bool:
+    """True bila soal isian punya kunci yang valid (non-kosong setelah parse)."""
+    return question.type in KEYWORD_TYPES and bool(parse_answer_key(question.answer_key))
+
 
 def max_score_for(questions, scoring_mode: str | None = None) -> float:
     """Total poin maksimal yang benar-benar bisa diraih.
 
-    Hanya soal `is_scored` dengan tipe yang dinilai otomatis. Essay/date/time/
-    file_upload selalu 0 poin — kalau data lama membawa poin, tidak ikut
+    Hanya soal `is_scored` dengan tipe yang dinilai otomatis — termasuk
+    essay/short_answer yang punya answer_key. Essay/date/time/file_upload
+    tanpa kunci selalu 0 poin — kalau data lama membawa poin, tidak ikut
     menambah max_score (mencegah persen ≠ nilai mentah, mis. 67/102).
     """
     raw_max = float(sum(
         q.points or 0 for q in questions
-        if q.is_scored and q.type in GRADABLE_TYPES
+        if q.is_scored and (q.type in GRADABLE_TYPES or has_answer_key(q))
     ))
     # Manual points may sum to any positive value. Public quiz score remains
     # percentage-based, matching auto mode's 100-point pool.
@@ -49,7 +62,22 @@ def grade_answer(answer: Answer, question: Question):
       - non-gradable / unscored types -> (None, 0)
       - multiple_choice / checkbox    -> +points when selected == correct set
       - password                     -> exact keyword match
+      - essay / short_answer berkunci -> +points bila salah satu kunci
+        terkandung dalam jawaban (case-insensitive); tanpa kunci -> (None, 0)
     """
+    # Essay/short_answer dengan answer_key: cocok-salah-satu (contains,
+    # abaikan kapital). Tanpa kunci: perilaku lama (None, 0).
+    if question.type in KEYWORD_TYPES:
+        if not question.is_scored or not has_answer_key(question):
+            return None, Decimal("0")
+        text = normalize_answer_text(answer.answer_text)
+        if not text:
+            return False, Decimal("0")
+        for key in parse_answer_key(question.answer_key):
+            if key in text:
+                return True, Decimal(str(question.points or 0))
+        return False, Decimal("0")
+
     # ponytail: non-gradable types have no correct answer — 0 regardless of is_scored
     if question.type not in GRADABLE_TYPES or not question.is_scored:
         return None, Decimal("0")
