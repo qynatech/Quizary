@@ -9,9 +9,11 @@ interface Props {
   countdown: number; // 5..0
   themeColor?: string;
   onReenter: () => void;
+  isPinned?: boolean;
+  isExpoGo?: boolean;
 }
 
-export function RestrictedWarningOverlay({ visible, countdown, themeColor, onReenter }: Props) {
+export function RestrictedWarningOverlay({ visible, countdown, themeColor, onReenter, isPinned, isExpoGo }: Props) {
   if (!visible) return null;
   const gradient = getThemeGradientColors(themeColor || '#6C5CE7');
 
@@ -34,7 +36,11 @@ export function RestrictedWarningOverlay({ visible, countdown, themeColor, onRee
         </View>
 
         <Text style={styles.warningText}>
-          Peringatan: Anda keluar dari fullscreen. Segera kembali sebelum hitungan habis!
+          {isPinned
+            ? 'App dipin — tekan Recent (kotak) lama + Back untuk keluar akan langsung terkunci. Segera kembali!'
+            : isExpoGo
+              ? 'Mode Expo Go: pin tidak aktif. Anda keluar dari app — kembali sebelum 5 detik atau akan terkunci.'
+              : 'Peringatan: Anda keluar dari app. Segera kembali sebelum hitungan habis!'}
         </Text>
 
         <TouchableOpacity style={styles.cta} onPress={onReenter} activeOpacity={0.9}>

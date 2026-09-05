@@ -19,20 +19,10 @@ interface Props {
 }
 
 export function AudioPlayer({ uri, themeColor = '#0EA5E9', compact }: Props) {
-  // fallback kalau expo-audio tidak ada (Expo Go lama) — tampilkan tombol buka external tapi tetap inline style
   if (!useAudioPlayer || !useAudioPlayerStatus) {
-    // tetap pakai expo-av fallback
-    try {
-      const Av = require('expo-av');
-      const Audio = Av.Audio;
-      if (Audio?.Sound) {
-        // simple av fallback — render sama tapi pakai Av di dalam
-        return <AvFallback uri={uri} themeColor={themeColor} compact={compact} />;
-      }
-    } catch {}
     return (
       <View style={[styles.container, compact && styles.compact, { backgroundColor: '#FFF', borderColor: '#E2E8F0' }]}>
-        <Text style={{ color: '#64748B', fontSize: 12 }}>Audio tidak didukung di Expo Go lama — update Expo Go</Text>
+        <Text style={{ color: '#64748B', fontSize: 12 }}>Audio tidak didukung — update app</Text>
       </View>
     );
   }
@@ -83,51 +73,7 @@ export function AudioPlayer({ uri, themeColor = '#0EA5E9', compact }: Props) {
   );
 }
 
-// fallback Av jika expo-audio tidak ada tapi expo-av ada
-function AvFallback({ uri, themeColor, compact }: Props) {
-  const [AvPlayer, setAvPlayer] = React.useState<any>(null);
-  const [isPlaying, setIsPlaying] = React.useState(false);
-  const [pos, setPos] = React.useState(0);
-  const [dur, setDur] = React.useState(0);
-  const soundRef = React.useRef<any>(null);
 
-  const fmt = (ms: number) => {
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${String(sec).padStart(2, '0')}`;
-  };
-
-  const toggle = async () => {
-    try {
-      const { Audio } = require('expo-av');
-      if (soundRef.current) {
-        const st: any = await soundRef.current.getStatusAsync();
-        if (st.isPlaying) { await soundRef.current.pauseAsync(); setIsPlaying(false); return; }
-        if (st.isLoaded) { await soundRef.current.playAsync(); setIsPlaying(true); return; }
-      }
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true }, (st: any) => {
-        if (st.isLoaded) { setPos(st.positionMillis || 0); setDur(st.durationMillis || 0); setIsPlaying(!!st.isPlaying); }
-      });
-      soundRef.current = sound;
-      setIsPlaying(true);
-    } catch {}
-  };
-
-  return (
-    <View style={[styles.container, compact && styles.compact, { backgroundColor: '#FFF', borderColor: '#E2E8F0' }]}>
-      <TouchableOpacity onPress={toggle} style={styles.playBtn} activeOpacity={0.85}>
-        <Ionicons name={isPlaying ? 'pause' : 'play'} size={18} color="#0F172A" style={!isPlaying ? { marginLeft: 2 } : undefined} />
-      </TouchableOpacity>
-      <Text style={styles.time}>{fmt(pos)} / {fmt(dur)}</Text>
-      <View style={styles.trackWrap}>
-        <View style={styles.track}><View style={[styles.fill, { width: `${dur ? (pos / dur) * 100 : 0}%` }]} /></View>
-      </View>
-      <Ionicons name="volume-high-outline" size={18} color="#0F172A" />
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {

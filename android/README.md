@@ -1,56 +1,62 @@
-# Welcome to your Expo app 👋
+# Quizary — Android (Expo 57)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App responden Quizary. Fokus mengerjakan quiz/form via QR/link, termasuk mode **Restricted (is_restricted=true)** dengan **App Pinning (Screen Pinning / Lock Task)**.
 
-## Get started
+## Prasyarat
+- Node 20+, `npm`, EAS CLI (`npm i -g eas-cli`)
+- Akun Expo (`cruzzing`, projectId `0a9cf652-3b6c-4f6c-8af9-4d37ffd95b4e`)
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+## Setup
 ```bash
-npm run reset-project
+cd android
+npm install
+cp .env.example .env  # atau set EXPO_PUBLIC_API_URL=http://<IP_LAN>:8000/api
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+`EXPO_PUBLIC_API_URL` wajib benar (LAN IP, bukan localhost). Tanpa itu `src/services/api_service.ts:5` auto-detect dari `hostUri` atau `10.0.2.2`.
 
-### Other setup steps
+## Menjalankan
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### Expo Go (cepat, tanpa pinning)
+```bash
+npx expo start
+# scan QR dengan Expo Go
+```
+Mode `is_restricted` tetap jalan tapi **tanpa pin** — hanya warning 5 detik `RestrictedWarningOverlay` jika keluar app (fallback).
 
-## Learn more
+### Dev Client (wajib untuk test pinning)
+Pinning butuh native module `AppPinning` (`plugins/with-app-pinning.js` + `src/modules/app-pinning/`), tidak ada di Expo Go.
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+# build dev client sekali
+eas build --profile development --platform android
+# install APK hasil build di HP, lalu:
+npx expo start --dev-client
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## App Pinning — Restricted Mode
 
-## Join the community
+- Trigger: `forms.is_restricted=true` (hanya untuk `type='quiz'`, auto-coerce `once`+`require_login` di backend `app/models/form.py:61`)
+- Pin: `src/hooks/useAppPinning.ts` → `NativeModules.AppPinning.startPinning()` (`startLockTask()`) tepat setelah `createSubmission()` sukses di `src/app/quiz.tsx:324`
+- Unpin: `stopLockTask()` saat submit / auto-submit timeout / close / expired / `cheating` / unmount
+- Fallback: `canPin=false` di Expo Go/Web/iOS → skip pin, tampil banner info
+- Android: API 24+ (minSdk Expo 57), `startLockTask()` ada sejak API 21. Tanpa Device Owner: sistem tampil dialog "Pin this app?" dan user bisa unpin via **Recent lama + Back** (akan langsung `POST /submissions/{id}/lock` → `status='locked'` menunggu pengawas, sesuai flow lama `quiz.tsx:222` AppState).
 
-Join our community of developers creating universal apps.
+### Build APK untuk distribusi
+```bash
+eas build --profile preview --platform android   # APK internal
+eas build --profile production --platform android # AAB store
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Test checklist restricted
+1. Expo Go + quiz `is_restricted=true` → tidak ke-pin, keluar app 5 detik → `ViolatingLockOverlay`
+2. Dev Client + quiz `is_restricted=true` → dialog pin → Home/Recent terblok → long-press Recent+Back → unpin → `locked`
+3. Submit / timeout → auto unpin → kembali home
+4. `is_restricted=false` → tidak pernah pin
+
+## Struktur Penting
+- `plugins/with-app-pinning.js` — config plugin inject Kotlin
+- `src/modules/app-pinning/*.kt.template` — source Kotlin `AppPinningModule`/`AppPinningPackage`
+- `src/hooks/useAppPinning.ts` — wrapper JS
+- `src/app/quiz.tsx` — lifecycle pin/unpin + `BackHandler`
+- `src/components/quiz/RestrictedWarningOverlay.tsx` — teks dinamis pin/Expo Go

@@ -1,0 +1,76 @@
+package com.qynatech.Quizary
+
+import android.app.ActivityManager
+import android.content.Context
+import android.os.Build
+import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.bridge.UiThreadUtil
+
+@ReactModule(name = "AppPinning")
+class AppPinningModule(private val reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+    override fun getName(): String = "AppPinning"
+
+    @ReactMethod
+    fun startPinning(promise: Promise) {
+        UiThreadUtil.runOnUiThread {
+            try {
+                val activity = reactContext.currentActivity
+                if (activity == null) {
+                    promise.reject("NO_ACTIVITY", "No current activity")
+                    return@runOnUiThread
+                }
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                    promise.reject("UNSUPPORTED", "startLockTask requires API 21+")
+                    return@runOnUiThread
+                }
+                activity.startLockTask()
+                promise.resolve(true)
+            } catch (e: Exception) {
+                promise.reject("START_FAILED", e.message, e)
+            }
+        }
+    }
+
+    @ReactMethod
+    fun stopPinning(promise: Promise) {
+        UiThreadUtil.runOnUiThread {
+            try {
+                val activity = reactContext.currentActivity
+                if (activity == null) {
+                    // Already gone, consider unpinned
+                    promise.resolve(true)
+                    return@runOnUiThread
+                }
+                try {
+                    activity.stopLockTask()
+                } catch (_: Exception) {
+                    // Not in lock task, ignore
+                }
+                promise.resolve(true)
+            } catch (e: Exception) {
+                promise.reject("STOP_FAILED", e.message, e)
+            }
+        }
+    }
+
+    @ReactMethod
+    fun isPinned(promise: Promise) {
+        try {
+            val am = reactContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val state = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.lockTaskModeState
+            } else {
+                // API 21-22: isInLockTaskMode deprecated but still works via isInLockTaskMode
+                @Suppress("DEPRECATION")
+                if (am.isInLockTaskMode) ActivityManager.LOCK_TASK_MODE_PINNED else ActivityManager.LOCK_TASK_MODE_NONE
+            }
+            promise.resolve(state != ActivityManager.LOCK_TASK_MODE_NONE)
+        } catch (e: Exception) {
+            promise.reject("CHECK_FAILED", e.message, e)
+        }
+    }
+}

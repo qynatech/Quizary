@@ -22,7 +22,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.qynatech.Quizary"
+      "package": "com.qynatech.Quizary",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "output": "static",
@@ -45,7 +51,8 @@
       "@react-native-community/datetimepicker",
       "expo-status-bar",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/with-app-pinning.js"
     ],
     "experiments": {
       "typedRoutes": true,

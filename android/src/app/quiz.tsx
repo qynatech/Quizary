@@ -10,6 +10,7 @@ import {
   AppState,
   AppStateStatus,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -29,6 +30,7 @@ import {
   setSubmissionToken,
   getToken,
   uploadAnswerFile,
+  checkPassword,
 } from '../services/api_service';
 import { QuizLandingStep } from '../components/quiz/QuizLandingStep';
 import { QuizStyleAnsweringStep } from '../components/quiz/QuizStyleAnsweringStep';
@@ -38,6 +40,7 @@ import { QuizSubmittedStep } from '../components/quiz/QuizSubmittedStep';
 import { RestrictedWarningOverlay } from '../components/quiz/RestrictedWarningOverlay';
 import { ViolatingLockOverlay } from '../components/quiz/ViolatingLockOverlay';
 import { getThemeGradientColors } from '../components/quiz/QuizBackground';
+import { useAppPinning } from '../hooks/useAppPinning';
 
 function parseWibDate(dateStr: string): Date | null {
   if (!dateStr) return null;
@@ -97,6 +100,7 @@ export default function QuizScreen() {
   const answeringRef = useRef(false);
   const warningVisibleRef = useRef(false);
   const lockedVisibleRef = useRef(false);
+  const { pin, unpin, canPin, isExpoGo, nativeMissing } = useAppPinning();
 
   const themeColor =
     publicForm?.theme_color ||
@@ -160,12 +164,37 @@ export default function QuizScreen() {
   }, [shortCode]);
 
   // Poll submission if locked (check if creator unlocked)
-  // Cleanup timer on unmount
+  // Cleanup timer and unpin on unmount
   useEffect(() => {
     return () => {
       if (warningTimerRef.current) clearInterval(warningTimerRef.current);
+      // Ensure we unpin if component unmounts while pinned (e.g. back to home)
+      // Fire-and-forget; don't block unmount
+      unpin().catch(() => {});
     };
-  }, []);
+  }, [unpin]);
+
+  // Block hardware back when pinned (restricted quiz in progress)
+  useEffect(() => {
+    const handler = () => {
+      if (isRestrictedRef.current && answeringRef.current && !lockedVisibleRef.current) {
+        // In pinned mode, back should be blocked; show hint
+        if (canPin) {
+          showAlert({
+            type: 'warning',
+            title: language === 'ID' ? 'Terkunci' : 'Locked',
+            message: language === 'ID'
+              ? 'Ujian sedang dipin. Tekan Recent lama + Back untuk keluar (akan terkunci).'
+              : 'Exam is pinned. Long-press Recent + Back to exit (will lock).',
+          });
+          return true;
+        }
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', handler);
+    return () => sub.remove();
+  }, [canPin, language]);
 
   const handleCheckLockedStatus = useCallback(async () => {
     const sid = submissionIdRef.current;
@@ -185,10 +214,12 @@ export default function QuizScreen() {
         setSubmission((prev: any) => ({ ...prev, status: 'in_progress' }));
         showAlert({ type: 'success', title: language === 'ID' ? 'Dibuka Kembali' : 'Unlocked', message: language === 'ID' ? 'Pengawas telah membuka kembali ujian. Silakan lanjutkan.' : 'Proctor has unlocked the exam. Please continue.' });
       } else if (status === 'locked') {
-        // Still locked, refresh timer
+        // Still locked, refresh timer (keep pinned)
         setCheatReason(detail.cheat_reason || 'window-blur');
         showAlert({ type: 'warning', title: language === 'ID' ? 'Masih Terkunci' : 'Still Locked', message: language === 'ID' ? 'Ujian masih terkunci, tunggu keputusan pengawas.' : 'Exam is still locked, waiting for proctor decision.' });
       } else if (status === 'cheating' || status === 'submitted' || status === 'auto_submitted') {
+        // Final state -> unpin before leaving
+        await unpin().catch(() => {});
         setLockedVisible(false);
         setWarningVisible(false);
         router.replace({ pathname: '/(tabs)/home' } as any);
@@ -198,7 +229,7 @@ export default function QuizScreen() {
     } finally {
       setRefreshingLock(false);
     }
-  }, [language]);
+  }, [language, unpin]);
 
   // Timer countdown for exam (expired_at)
   useEffect(() => {
@@ -293,7 +324,11 @@ export default function QuizScreen() {
     warningVisibleRef.current = false;
     setWarningCountdown(5);
     countdownRef.current = 5;
-  }, []);
+    // Re-pin if we were pinned before (user returned within grace period)
+    if (isRestrictedRef.current && canPin) {
+      pin().catch(() => {});
+    }
+  }, [canPin, pin]);
 
   const handleStart = async () => {
     if (!publicForm) return;
@@ -346,6 +381,35 @@ export default function QuizScreen() {
         setAnswers(init);
       }
       answeringRef.current = true;
+      // Pin app if restricted quiz (screen pinning). Fire-and-forget with fallback.
+      if (publicForm.type === 'quiz' && publicForm.is_restricted) {
+        if (canPin) {
+          const pinned = await pin().catch(() => false);
+          if (!pinned) {
+            showAlert({
+              type: 'warning',
+              title: language === 'ID' ? 'Pin gagal' : 'Pin failed',
+              message: language === 'ID'
+                ? 'Gagal pin app. Tetap pakai mode warning 5 detik jika keluar.'
+                : 'Failed to pin app. Using 5s warning fallback.',
+            });
+          }
+        } else if (isExpoGo) {
+          showAlert({
+            type: 'info',
+            title: language === 'ID' ? 'Mode Expo Go' : 'Expo Go mode',
+            message: language === 'ID'
+              ? 'Pin hanya aktif di Dev Client / APK build. Di Expo Go pakai deteksi background (5 detik).'
+              : 'Pinning only works in Dev Client / APK. Expo Go uses background detection (5s).',
+          });
+        } else if (nativeMissing) {
+          showAlert({
+            type: 'warning',
+            title: 'Native pin tidak terpasang',
+            message: 'Dev Client build lama / native tidak ter-link. Rebuild dengan --clear-cache.',
+          });
+        }
+      }
     } catch (e: any) {
       const msg = String(e.message || '');
       if (msg.toLowerCase().includes('already submitted') || msg.includes('409')) {
@@ -414,13 +478,12 @@ export default function QuizScreen() {
     }
   };
 
-  // Password gate helper — untuk quiz & card: semua password wajib benar (OPTIONAL token hahay pun block Next/section)
+  // Password gate helper — untuk quiz & card: semua password wajib benar
   const checkPasswords = async (qs: any[]): Promise<number[]> => {
     const targets = qs.filter((q) => String(q.type || q.question_type || '').toLowerCase() === 'password');
     if (!targets.length) return [];
     const sid = submissionIdRef.current;
     if (!sid) return targets.map((q: any) => q.id);
-    const { checkPassword } = await import('../services/api_service');
     const wrong: number[] = [];
     for (const q of targets) {
       const ans = String(answers[q.id] ?? '');
@@ -461,6 +524,28 @@ export default function QuizScreen() {
 
   const handleNextSection = async () => {
     if (!currentCardPage) return;
+    // Required validation per section — global for all forms (card design)
+    for (const q of currentCardPage.questions) {
+      if (q.is_required === false) continue;
+      const val = answers[q.id];
+      const has =
+        q.type === 'file_upload'
+          ? !!val
+          : Array.isArray(val)
+          ? val.length > 0
+          : !!val && String(val).trim().length > 0;
+      if (!has) {
+        const clean = String(q.question_text || '').replace(/<[^>]*>/g, '').trim().slice(0, 60) || `Soal`;
+        showAlert({
+          type: 'warning',
+          title: language === 'ID' ? 'Soal wajib belum diisi' : 'Required question missing',
+          message: language === 'ID'
+            ? `"${clean}" di section ini wajib diisi sebelum lanjut.`
+            : `"${clean}" in this section is required before proceeding.`,
+        });
+        return;
+      }
+    }
     setPwChecking(true);
     const wrong = await checkPasswords(currentCardPage.questions);
     setPwChecking(false);
@@ -497,6 +582,7 @@ export default function QuizScreen() {
     const sid = submissionIdRef.current;
     if (!sid) return;
     answeringRef.current = false;
+    await unpin().catch(() => {});
     try {
       await finalizeSubmission(sid);
     } catch {}
@@ -556,6 +642,7 @@ export default function QuizScreen() {
     try {
       const res = await finalizeSubmission(sid);
       answeringRef.current = false;
+      await unpin().catch(() => {});
       // Show submitted step briefly then go home
       setSubmission((prev: any) => ({ ...prev, result: res }));
       // Navigate to success view
@@ -587,7 +674,13 @@ export default function QuizScreen() {
         <StatusBar style="dark" />
         <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
         <Text style={[styles.emptyTitle, { color: colors.text }]}>Form tidak ditemukan</Text>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.primary }]} onPress={() => router.replace('/(tabs)/home' as any)}>
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: colors.primary }]}
+          onPress={async () => {
+            await unpin().catch(() => {});
+            router.replace('/(tabs)/home' as any);
+          }}
+        >
           <Text style={styles.backBtnText}>Kembali</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -610,7 +703,14 @@ export default function QuizScreen() {
             </View>
             <Text style={styles.alreadyTitle}>You have already submitted this form.</Text>
             <Text style={styles.alreadySub}>You can only submit this form once.</Text>
-            <TouchableOpacity style={styles.alreadyBack} onPress={() => router.replace('/(tabs)/home' as any)} activeOpacity={0.9}>
+            <TouchableOpacity
+              style={styles.alreadyBack}
+              onPress={async () => {
+                await unpin().catch(() => {});
+                router.replace('/(tabs)/home' as any);
+              }}
+              activeOpacity={0.9}
+            >
               <Ionicons name="arrow-back" size={18} color={themeColor} />
               <Text style={[styles.alreadyBackText, { color: themeColor }]}>{language === 'ID' ? 'Kembali' : 'Back to home'}</Text>
             </TouchableOpacity>
@@ -627,7 +727,13 @@ export default function QuizScreen() {
       <SafeAreaView style={[styles.center, { backgroundColor: colors.bg }]}>
         <Ionicons name="lock-closed-outline" size={48} color={colors.textMuted} />
         <Text style={[styles.emptyTitle, { color: colors.text }]}>{map[reason] || 'Tidak dapat memulai'}</Text>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.primary }]} onPress={() => router.replace('/(tabs)/home' as any)}>
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: colors.primary }]}
+          onPress={async () => {
+            await unpin().catch(() => {});
+            router.replace('/(tabs)/home' as any);
+          }}
+        >
           <Text style={styles.backBtnText}>{language === 'ID' ? 'Kembali' : 'Back'}</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -690,13 +796,22 @@ export default function QuizScreen() {
           submitting={submitting}
           onSubmit={handleSubmit}
           onOpenZoom={setZoomQuestion}
-          onCloseQuiz={() => router.replace('/(tabs)/home' as any)}
+          onCloseQuiz={async () => {
+            await unpin().catch(() => {});
+            router.replace('/(tabs)/home' as any);
+          }}
           submissionId={submissionIdRef.current}
         />
       ) : (
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           <View style={[styles.formHeader, { borderBottomColor: colors.inputBorder, backgroundColor: colors.cardBg }]}>
-            <TouchableOpacity onPress={() => router.replace('/(tabs)/home' as any)} style={{ padding: 6 }}>
+            <TouchableOpacity
+              onPress={async () => {
+                await unpin().catch(() => {});
+                router.replace('/(tabs)/home' as any);
+              }}
+              style={{ padding: 6 }}
+            >
               <Ionicons name="close" size={22} color={colors.text} />
             </TouchableOpacity>
             <Text style={[styles.formHeaderTitle, { color: colors.text }]} numberOfLines={1}>
@@ -798,7 +913,14 @@ export default function QuizScreen() {
         />
       )}
 
-      <RestrictedWarningOverlay visible={warningVisible} countdown={warningCountdown} themeColor={themeColor} onReenter={handleReenter} />
+      <RestrictedWarningOverlay
+        visible={warningVisible}
+        countdown={warningCountdown}
+        themeColor={themeColor}
+        onReenter={handleReenter}
+        isPinned={canPin}
+        isExpoGo={isExpoGo}
+      />
 
       <ViolatingLockOverlay
         visible={lockedVisible}
