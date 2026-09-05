@@ -484,7 +484,7 @@
     "optionPlaceholder": "Opsi {{letter}}",
     "markCorrectWarning": "Tandai minimal satu opsi sebagai jawaban benar.",
     "allowOther": "Izinkan jawaban lainnya",
-    "allowOtherHint": "Responden bisa memilih Lainnya dan mengetik sendiri. Jawaban lainnya tidak ikut penilaian otomatis.",
+    "allowOtherHint": "Responden bisa memilih Lainnya dan mengetik sendiri",
     "otherBadge": "Lainnya",
     "save": "Simpan",
     "cancel": "Batal",

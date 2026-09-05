@@ -541,6 +541,26 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
                 </div>
               </motion.div>
             ))}
+            {form.allow_other && (form.type === 'multiple_choice' || form.type === 'checkbox') && (
+              <motion.div
+                key="other-option"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="flex items-start gap-2 p-3 rounded-xl border border-dashed border-primary/40 bg-primary-50/40 dark:bg-primary-900/10"
+              >
+                {form.type === 'checkbox' ? (
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg border-2 border-primary/40 bg-white dark:bg-ink-900 shrink-0 mt-1">
+                    <span className="text-xs font-medium text-primary">+</span>
+                  </span>
+                ) : (
+                  <span className="bubble bubble-empty shrink-0 mt-1">
+                    <span className="text-xs font-medium text-primary">+</span>
+                  </span>
+                )}
+                  <p className="text-sm font-medium text-primary dark:text-primary-300">{t('questionBuilder.otherBadge')}</p>
+              </motion.div>
+            )}
           </div>
           {needsOptions && form.options.length > 0 && !hasCorrect && isQuiz && form.is_scored && CORRECT_OPTION_TYPES.includes(form.type) && (
             <p className="text-xs text-warn mt-2">{t('questionBuilder.markCorrectWarning')}</p>
@@ -600,9 +620,6 @@ function QuestionCard({ question, index, onDelete, onDuplicate, duplicating, isD
             {selected ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : index + 1}
           </span>
           <Badge scheme="gray">{typeLabels[question.type]}</Badge>
-          {question.allow_other && (
-            <Badge scheme="primary" title={t('questionBuilder.allowOtherHint')}>{t('questionBuilder.otherBadge')}</Badge>
-          )}
           {groupId && (
             <Badge scheme="primary" title="Story group questions always appear in sequence even with shuffle active. Select question(s) then click Ungroup to remove.">
               <span className="hidden sm:inline">{t('questionBuilder.groupLabel', { n: groupIndex })}</span>
@@ -677,6 +694,24 @@ function QuestionCard({ question, index, onDelete, onDuplicate, duplicating, isD
               )}
             </div>
           ))}
+          {question.allow_other && (
+            <div key="other-option" className="flex items-center gap-2.5">
+              {question.type === 'dropdown' ? (
+                <span className="w-6 h-6 rounded-md bg-primary-50 dark:bg-primary-900/30 text-primary dark:text-primary-300 flex items-center justify-center text-[10px] font-bold shrink-0">{question.options.length + 1}</span>
+              ) : question.type === 'checkbox' ? (
+                <span className="flex items-center justify-center w-6 h-6 rounded-md border-2 border-primary/40 bg-primary-50 dark:bg-primary-900/20 shrink-0">
+                  <span className="text-xs font-medium text-primary">+</span>
+                </span>
+              ) : (
+                <span className={`bubble w-6 h-6 text-xs`} style={{ background: 'var(--primary-100)', color: 'var(--primary-600)' }}>
+                  <span className="text-xs font-medium">+</span>
+                </span>
+              )}
+              <span className="text-sm text-primary dark:text-primary-400 font-medium">
+                {t('questionBuilder.otherBadge')}
+              </span>
+            </div>
+          )}
         </div>
       )}
       {isQuiz && (!NO_GRADE_TYPES.includes(question.type) || ((question.type === 'essay' || question.type === 'short_answer') && (question.answer_key || '').trim())) && (question.is_scored ? question.points > 0 : true) && (

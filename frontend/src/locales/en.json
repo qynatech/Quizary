@@ -484,7 +484,7 @@
     "optionPlaceholder": "Option {{letter}}",
     "markCorrectWarning": "Mark at least one option as correct.",
     "allowOther": "Allow other answer",
-    "allowOtherHint": "Respondents can pick Other and type their own. Other answers are excluded from auto-grading.",
+    "allowOtherHint": "Respondents can pick Other and type their own",
     "otherBadge": "Other",
     "save": "Save",
     "cancel": "Cancel",
