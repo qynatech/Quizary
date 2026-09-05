@@ -52,6 +52,9 @@ class Question(Base):
     group_id = Column(String(36), nullable=True)
     # Jawaban benar untuk tipe password — jangan pernah ikut payload publik.
     password_keyword = Column(String(255), nullable=True)
+    # Izinkan opsi "Lainnya" ([]pilihan, ketik sendiri) untuk
+    # multiple_choice/checkbox. Ditampilkan ke responden hanya bila true.
+    allow_other = Column(Boolean, default=False)
     # Kunci jawaban untuk essay/short_answer pada quiz — owner-only seperti
     # password_keyword, tidak pernah ikut payload publik/responden.
     answer_key = Column(Text, nullable=True)

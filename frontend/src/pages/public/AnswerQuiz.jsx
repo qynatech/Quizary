@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Timer, ChevronLeft, ChevronRight, Grid3x3, Flag, CheckCheck, AlertTriangle, Info, ZoomIn, ZoomOut, X, Lock, FileUp, RefreshCw } from 'lucide-react'
+import { Check, Timer, ChevronLeft, ChevronRight, Grid3x3, Flag, CheckCheck, AlertTriangle, Info, ZoomIn, ZoomOut, X, Lock, FileUp, RefreshCw, PenLine } from 'lucide-react'
 import { Button, Input, Textarea, Card, Select, FallbackPage, QuestionMap, ConfirmSubmitModal, RichText } from '../../components/ui'
 import { useAutosave, loadDraft, clearDraft } from '../../hooks/useAutosave'
 import { useTheme } from '../../hooks/useTheme'
@@ -14,7 +14,20 @@ import { sessionTokenHeaders } from '../../lib/sessionToken'
 const OPT_COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981']
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 const TEXT_LIMITS = { short_answer: 500, essay: 5000 }
+const OTHER_TEXT_LIMIT = 500
 const getTextLimit = (type) => TEXT_LIMITS[type] || null
+
+// Nilai jawaban pilihan bisa array (option_ids) atau object {ids, text}
+// bila opsi "Lainnya" dipakai. Dua helper ini satu-satunya tempat yang
+// tahu dua bentuk tersebut — semua predikat memakainya.
+const hasValue = (v) => Array.isArray(v)
+  ? v.length > 0
+  : (v && typeof v === 'object'
+    ? ((v.ids || []).length > 0 || !!String(v.text || '').trim())
+    : (!!v && String(v).trim().length > 0))
+const splitChoice = (v) => Array.isArray(v)
+  ? { ids: v, text: null }
+  : { ids: (v && v.ids) || [], text: (v && v.text) ?? null }
 
 function parseDate(str) {
   if (!str) return null
@@ -78,6 +91,80 @@ function OptionTile({ letter, color, selected, checkbox, children, onClick, disa
         </span>
       )}
     </motion.button>
+  )
+}
+
+// Opsi "Lainnya" (ketik sendiri) — hanya tampil bila creator mengaktifkan
+// (question.allow_other). Dua varian mengikuti gaya sekitarnya: tile warna
+// (mode quiz) dan baris ber-border (mode card/form).
+function OtherTile({ variant = 'quiz', color, checkbox, selected, text, onToggle, onText, inputId, label, placeholder, error }) {
+  if (variant === 'card') {
+    return (
+      <div
+        onClick={onToggle}
+        className={`flex flex-col gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors ${selected ? 'border-[var(--t)] bg-[var(--t-soft)]' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-ink-800'} ${error ? '!border-incorrect' : ''}`}
+      >
+        <div className="flex items-center gap-3 w-full">
+          {checkbox ? (
+            <span className={`flex items-center justify-center w-6 h-6 rounded-md border-2 shrink-0 transition-colors ${selected ? '' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-ink-800'}`} style={selected ? { borderColor: 'var(--t)', backgroundColor: 'var(--t)', color: 'var(--t-contrast, #fff)' } : undefined}>
+              {selected && <Check className="w-3.5 h-3.5" strokeWidth={3.5} />}
+            </span>
+          ) : (
+            <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selected ? 'border-[var(--t)]' : 'border-gray-300 dark:border-gray-600 text-gray-400'}`}>
+              {selected
+                ? <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--t)' }} />
+                : <PenLine className="w-3 h-3" />}
+            </span>
+          )}
+          <span className="text-sm font-medium text-ink dark:text-gray-200 flex-1 leading-snug text-left">{label}</span>
+        </div>
+        <input
+          id={inputId}
+          value={text}
+          onChange={(e) => onText(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          placeholder={placeholder}
+          maxLength={OTHER_TEXT_LIMIT + 50}
+          className={`input-field h-10 text-sm ${error && !text.trim() ? 'border-incorrect' : ''}`}
+        />
+      </div>
+    )
+  }
+  return (
+    <motion.div
+      onClick={onToggle}
+      className={`relative py-4 px-4 rounded-2xl font-medium text-white min-h-[88px] flex flex-col gap-3 transition-all cursor-pointer ${
+        selected ? 'ring-2 ring-white ring-offset-2 shadow-lift scale-[1.02]' : 'shadow hover:brightness-110 active:brightness-95'
+      } ${error && !text.trim() ? '!ring-2 !ring-incorrect ring-offset-2' : ''}`}
+      style={{ backgroundColor: color }}
+    >
+      <div className="flex items-center gap-3 w-full">
+        {checkbox ? (
+          <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 transition-colors ${selected ? 'bg-white' : 'bg-white/25'}`}>
+            {selected && <Check className="w-4 h-4 text-[var(--t,#6C5CE7)]" strokeWidth={3.5} />}
+          </span>
+        ) : (
+          <span className="flex items-center justify-center w-9 h-9 rounded-full bg-white/25 shrink-0">
+            <PenLine className="w-4 h-4" />
+          </span>
+        )}
+        <span className="flex-1 leading-snug text-left">{label}</span>
+        {selected && !checkbox && (
+          <span className="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center shrink-0">
+            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+          </span>
+        )}
+      </div>
+      <input
+        id={inputId}
+        value={text}
+        onChange={(e) => onText(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        placeholder={placeholder}
+        maxLength={OTHER_TEXT_LIMIT + 50}
+        className="w-full rounded-xl bg-white/95 px-3.5 h-11 text-sm text-ink placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-white/70"
+      />
+    </motion.div>
   )
 }
 
@@ -186,7 +273,10 @@ export default function AnswerQuiz() {
         } else if (a.question_type === 'file_upload') {
           if (a.answer_file) files[a.question_id] = { url: a.answer_file, filename: a.answer_file.split('/').pop() }
         } else {
-          ans[a.question_id] = a.selected_option_ids || []
+          // Jawaban campuran (opsi + teks "Lainnya") dipulihkan sebagai object
+          ans[a.question_id] = a.answer_text
+            ? { ids: a.selected_option_ids || [], text: a.answer_text }
+            : (a.selected_option_ids || [])
         }
       })
       setAnswers(ans)
@@ -632,26 +722,82 @@ export default function AnswerQuiz() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveType, data, currentIdx, answers, showConfirm, showMap, reviewed])
 
+  // Nilai pilihan bisa object {ids, text} bila "Lainnya" dipakai —
+  // normalkan ke bentuk array sebelum toggle agar cabang lama tetap jalan.
+  const choiceIds = (qId, a) => splitChoice((a ?? answers)[qId]).ids
+
   const handleSelect = (qId, optId) => {
     const question = data.questions.find((q) => q.id === qId)
     if (!question) return
 
     if (question.type === 'multiple_choice' || question.type === 'dropdown') {
       setAnswers((a) => {
-        const next = optId == null ? [] : a[qId]?.[0] === optId ? [] : [optId]
+        const { ids, text } = splitChoice(a[qId])
+        const toggledOff = optId == null || ids[0] === optId
+        const nextIds = toggledOff ? [] : [optId]
+        // MC single-answer: pilih opsi baru membuang teks Lainnya;
+        // batal-pilih mempertahankannya (tetap terjawab bila teks ada).
+        const keepText = text && toggledOff ? text : null
+        const next = keepText ? { ids: nextIds, text: keepText } : nextIds
         save(qId, next)
         return { ...a, [qId]: next }
       })
     } else if (question.type === 'checkbox') {
       setAnswers((a) => {
-        const prev = a[qId] || []
-        const next = prev.includes(optId) ? prev.filter((id) => id !== optId) : [...prev, optId]
+        const { ids, text } = splitChoice(a[qId])
+        const nextIds = ids.includes(optId) ? ids.filter((id) => id !== optId) : [...ids, optId]
+        const next = text ? { ids: nextIds, text } : nextIds
         save(qId, next)
         return { ...a, [qId]: next }
       })
     }
     // Clear validation error for this question once user picks an answer
     if (validationErrors[qId]) {
+      setValidationErrors((e) => { const n = { ...e }; delete n[qId]; return n })
+    }
+  }
+
+  // Opsi "Lainnya": berperilaku seperti opsi biasa — tap untuk pilih /
+  // lepas (checkmark/ring menyala) — plus kolom ketik yang selalu terlihat.
+  // Dipilih saja (teks kosong) = terpilih tapi belum terjawab; mengisi teks
+  // = terjawab. Toggle off membuang teksnya sekalian.
+  const toggleOther = (qId) => {
+    const question = data?.questions?.find((x) => x.id === qId)
+    const v = answers[qId]
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      setAnswers((a) => {
+        const next = splitChoice(a[qId]).ids
+        save(qId, next)
+        return { ...a, [qId]: next }
+      })
+    } else {
+      const ids = Array.isArray(v) ? v : []
+      // MC satu jawaban: nyalakan Lainnya = lepas semua opsi biasa
+      const nextIds = question?.type === 'multiple_choice' ? [] : ids
+      setAnswers((a) => ({ ...a, [qId]: { ids: nextIds, text: '' } }))
+      setTimeout(() => document.getElementById(`other-input-${qId}`)?.focus(), 60)
+    }
+    if (validationErrors[qId]) {
+      setValidationErrors((e) => { const n = { ...e }; delete n[qId]; return n })
+    }
+  }
+
+  const handleOtherText = (qId, value) => {
+    const question = data?.questions?.find((x) => x.id === qId)
+    if (value.length > OTHER_TEXT_LIMIT) {
+      setTextLimitErrors((e) => ({ ...e, [qId]: t('answerQuiz.charLimit', { limit: OTHER_TEXT_LIMIT, current: value.length }) }))
+    } else {
+      setTextLimitErrors((e) => { const n = { ...e }; delete n[qId]; return n })
+    }
+    setAnswers((a) => {
+      const { ids } = splitChoice(a[qId])
+      // MC satu jawaban: mengetik di Lainnya = pilih Lainnya saja
+      const nextIds = (question?.type === 'multiple_choice' && value.trim()) ? [] : ids
+      const next = { ids: nextIds, text: value }
+      if (value.length <= OTHER_TEXT_LIMIT) save(qId, next)
+      return { ...a, [qId]: next }
+    })
+    if (validationErrors[qId] && value.trim()) {
       setValidationErrors((e) => { const n = { ...e }; delete n[qId]; return n })
     }
   }
@@ -751,8 +897,7 @@ export default function AnswerQuiz() {
       const pageQs = formPages[currentIdx]?.questions || []
       const isAns = (q) => {
         if (q.type === 'file_upload') return !!fileAnswers[q.id]?.url
-        const v = answers[q.id]
-        return Array.isArray(v) ? v.length > 0 : !!v && String(v).trim().length > 0
+        return hasValue(answers[q.id])
       }
       const missing = pageQs.filter((q) => q.is_required !== false && !isAns(q))
       if (missing.length) {
@@ -827,8 +972,7 @@ export default function AnswerQuiz() {
         const pageQs = formPages[currentIdx]?.questions || []
         const isAns = (q) => {
           if (q.type === 'file_upload') return !!fileAnswers[q.id]?.url
-          const v = answers[q.id]
-          return Array.isArray(v) ? v.length > 0 : !!v && String(v).trim().length > 0
+          return hasValue(answers[q.id])
         }
         const missing = pageQs.filter((q) => q.is_required !== false && !isAns(q))
         if (missing.length) {
@@ -1025,7 +1169,7 @@ export default function AnswerQuiz() {
   // Helper shared by both quiz and form modes
   const isAnswered = (q, val) => {
     if (q?.type === 'file_upload') return !!fileAnswers[q.id]?.url
-    return Array.isArray(val) ? val.length > 0 : !!val && String(val).trim().length > 0
+    return hasValue(val)
   }
 
   // Huruf opsi terpilih untuk tipe pilihan (MC/checkbox/dropdown) — sama
@@ -1033,7 +1177,7 @@ export default function AnswerQuiz() {
   // (jawabannya panjang, tidak enak ditampilkan di map).
   const pickLetters = (q, val) => {
     if (!q || !['multiple_choice', 'checkbox', 'dropdown'].includes(q.type)) return null
-    const ids = Array.isArray(val) ? val : []
+    const ids = Array.isArray(val) ? val : (val?.ids || [])
     if (!ids.length || !q.options?.length) return null
     const letters = ids
       .map((id) => {
@@ -1211,7 +1355,7 @@ export default function AnswerQuiz() {
                     <p className="text-xs text-gray-400 text-center mb-2">{t('answerQuiz.pickOne')}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {current.options.map((opt, i) => {
-                        const selected = (answers[current.id] || []).includes(opt.id)
+                        const selected = choiceIds(current.id).includes(opt.id)
                         return (
                           <OptionTile
                             key={opt.id}
@@ -1225,6 +1369,19 @@ export default function AnswerQuiz() {
                           </OptionTile>
                         )
                       })}
+                      {current.allow_other && (
+                        <OtherTile
+                          color={OPT_COLORS[current.options.length % OPT_COLORS.length]}
+                          selected={splitChoice(answers[current.id]).text != null}
+                          text={splitChoice(answers[current.id]).text || ''}
+                          onToggle={() => toggleOther(current.id)}
+                          onText={(v) => handleOtherText(current.id, v)}
+                          inputId={`other-input-${current.id}`}
+                          label={t('answerQuiz.other')}
+                          placeholder={t('answerQuiz.otherPlaceholder')}
+                          error={!!validationErrors[current.id]}
+                        />
+                      )}
                     </div>
                   </div>
                 )}
@@ -1234,7 +1391,7 @@ export default function AnswerQuiz() {
                     <p className="text-xs text-gray-400 text-center mb-2">{t('answerQuiz.pickMultiple')}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {current.options.map((opt, i) => {
-                        const selected = (answers[current.id] || []).includes(opt.id)
+                        const selected = choiceIds(current.id).includes(opt.id)
                         return (
                           <OptionTile
                             key={opt.id}
@@ -1249,6 +1406,20 @@ export default function AnswerQuiz() {
                           </OptionTile>
                         )
                       })}
+                      {current.allow_other && (
+                        <OtherTile
+                          checkbox
+                          color={OPT_COLORS[current.options.length % OPT_COLORS.length]}
+                          selected={splitChoice(answers[current.id]).text != null}
+                          text={splitChoice(answers[current.id]).text || ''}
+                          onToggle={() => toggleOther(current.id)}
+                          onText={(v) => handleOtherText(current.id, v)}
+                          inputId={`other-input-${current.id}`}
+                          label={t('answerQuiz.other')}
+                          placeholder={t('answerQuiz.otherPlaceholder')}
+                          error={!!validationErrors[current.id]}
+                        />
+                      )}
                     </div>
                   </div>
                 )}
@@ -1545,7 +1716,7 @@ export default function AnswerQuiz() {
                   {q.type === 'multiple_choice' && (
                     <div className="space-y-2">
                       {q.options.map((opt, i) => {
-                        const selected = (answers[q.id] || []).includes(opt.id)
+                        const selected = choiceIds(q.id).includes(opt.id)
                         return (
                           <label
                             key={opt.id}
@@ -1579,13 +1750,26 @@ export default function AnswerQuiz() {
                           </label>
                         )
                       })}
+                      {q.allow_other && (
+                        <OtherTile
+                          variant="card"
+                          selected={splitChoice(answers[q.id]).text != null}
+                          text={splitChoice(answers[q.id]).text || ''}
+                          onToggle={() => toggleOther(q.id)}
+                          onText={(v) => handleOtherText(q.id, v)}
+                          inputId={`other-input-${q.id}`}
+                          label={t('answerQuiz.other')}
+                          placeholder={t('answerQuiz.otherPlaceholder')}
+                          error={!!validationErrors[q.id]}
+                        />
+                      )}
                     </div>
                   )}
 
                   {q.type === 'checkbox' && (
                     <div className="space-y-2">
                       {q.options.map((opt) => {
-                        const selected = (answers[q.id] || []).includes(opt.id)
+                        const selected = choiceIds(q.id).includes(opt.id)
                         return (
                           <label
                             key={opt.id}
@@ -1619,6 +1803,20 @@ export default function AnswerQuiz() {
                           </label>
                         )
                       })}
+                      {q.allow_other && (
+                        <OtherTile
+                          variant="card"
+                          checkbox
+                          selected={splitChoice(answers[q.id]).text != null}
+                          text={splitChoice(answers[q.id]).text || ''}
+                          onToggle={() => toggleOther(q.id)}
+                          onText={(v) => handleOtherText(q.id, v)}
+                          inputId={`other-input-${q.id}`}
+                          label={t('answerQuiz.other')}
+                          placeholder={t('answerQuiz.otherPlaceholder')}
+                          error={!!validationErrors[q.id]}
+                        />
+                      )}
                     </div>
                   )}
 

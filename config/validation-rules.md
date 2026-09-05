@@ -150,6 +150,10 @@ Semua opsional (partial update). Field tambahan:
 - `multiple_choice` / `checkbox` → `options` ≥1 item
 - `short_answer` / `essay` → `options` = `[]`
 - `answer_key` → `string(1-500)?`, hanya `essay`/`short_answer` (tipe lain → 422), hanya quiz (form biasa → 422); maks 10 kunci × 100 char, pisah `;`/baris baru; `is_scored=true` tanpa kunci → 422
+- `allow_other` → `boolean` (default `false`), hanya `multiple_choice`/`checkbox` (tipe lain → 422); autosave `option_ids` + `answer_text` bersamaan hanya bila flag on (maks 500 char), selain itu 422 bila teks diisi
+
+#### `POST /api/ai/accept`
+Meneruskan `answer_key` + `allow_other` dari draf ke `Question` (aturan sama seperti create: tipe salah → 422 bernomor bagian/soal, kunci di form biasa → 422, essay/short tanpa kunci → poin 0). LLM dilarang mengarang kunci (`answer_key` selalu null dari generate; creator isi saat review); `allow_other:true` hanya bila user eksplisit minta opsi lainnya.
 
 **Option:**
 | Field | Rule |

@@ -410,9 +410,14 @@ export default function QuizResult() {
                             <p className="text-xs text-gray-400">{t('quizResult.yourAnswer')}</p>
                             <div className="text-sm font-medium text-ink dark:text-gray-200 mb-3">
                               {(answer.question_type === 'multiple_choice' || answer.question_type === 'checkbox' || answer.question_type === 'dropdown')
-                                ? (answer.selected_options?.length > 0
-                                  ? answer.selected_options.map((s) => sanitizeHtml(s).replace(/<[^>]*>/g, '') || s).join(', ')
-                                  : <span className="text-gray-400 italic">{t('quizResult.notAnswered')}</span>)
+                                ? (<>
+                                  {answer.selected_options?.length > 0
+                                    ? answer.selected_options.map((s) => sanitizeHtml(s).replace(/<[^>]*>/g, '') || s).join(', ')
+                                    : (!answer.answer_text && <span className="text-gray-400 italic">{t('quizResult.notAnswered')}</span>)}
+                                  {answer.answer_text && (
+                                    <span className="block mt-1 text-gray-500 dark:text-gray-400">{t('quizResult.otherAnswer', { text: answer.answer_text })}</span>
+                                  )}
+                                </>)
                                 : answer.question_type === 'file_upload'
                                   ? (answer.answer_file
                                     ? <a href={answer.answer_file} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-primary dark:text-primary-300 underline">{t('quizResult.viewAnswerFile')}</a>

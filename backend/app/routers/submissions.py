@@ -196,7 +196,7 @@ def _missing_required(sub: Submission, form: Form, db: Session) -> list[str]:
             continue
         text = re.sub(r"<[^>]+>", "", q.question_text).strip() or "Soal"
         if q.type in (QuestionType.multiple_choice, QuestionType.checkbox, QuestionType.dropdown):
-            if not a.selected_options:
+            if not a.selected_options and not (a.answer_text or "").strip():
                 missing.append(text)
         elif q.type == QuestionType.file_upload:
             if not a.answer_file:
@@ -283,6 +283,7 @@ def _build_questions_response(sub_id: int, request: Request, db: Session, includ
             is_required=q.is_required,
             section_id=q.section_id,
             group_id=q.group_id,
+            allow_other=bool(q.allow_other),
             image=_image_obj(q_img[0], request) if q_img else None,
             options=[
                 OptionPublic(
@@ -592,7 +593,23 @@ def autosave(
         db.query(AnswerOption).filter(AnswerOption.answer_id == answer.id).delete()
         for oid in body.option_ids:
             db.add(AnswerOption(answer_id=answer.id, option_id=oid))
-        answer.answer_text = None
+        # Teks "Lainnya" boleh menumpang bersama opsi — hanya bila soalnya
+        # MC/checkbox dengan flag allow_other. Selain itu teks dibuang
+        # (perilaku lama) atau ditolak bila diisi (fail-closed).
+        if body.answer_text:
+            if question.type not in (QuestionType.multiple_choice, QuestionType.checkbox) or not question.allow_other:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Soal ini tidak mengizinkan jawaban lainnya",
+                )
+            if len(body.answer_text) > 500:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Jawaban lainnya maksimal 500 karakter",
+                )
+            answer.answer_text = body.answer_text
+        else:
+            answer.answer_text = None
     elif body.answer_text is not None:
         answer.answer_text = body.answer_text
         db.query(AnswerOption).filter(AnswerOption.answer_id == answer.id).delete()

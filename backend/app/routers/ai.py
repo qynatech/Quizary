@@ -15,6 +15,7 @@ from app.models.user import User
 from app.routers.forms import _apply_setting_chain, _generate_short_code, _parse_enum
 from app.routers.questions import _NO_GRADE_TYPES
 from app.schemas.ai import AiAcceptRequest, AiAcceptResponse, AiGenerateResponse, AiQuotaResponse
+from app.schemas.question import check_allow_other, check_answer_key
 from app.services.ai_generate import (
     AI_DAILY_LIMIT,
     ALLOWED_REF_EXT,
@@ -177,15 +178,26 @@ def ai_accept(body: AiAcceptRequest, user: User = Depends(get_current_user), db:
             db.add(section)
             db.flush()
             for q in sec.questions:
+                # Validasi tipe kunci/flag sudah lolos di parsing QuestionCreate;
+                # di sini tinggal gate quiz (skema tak tahu tipe form) + hitung
+                # keyed untuk poin. Pesan bernomor bagian/soal agar mudah dicari.
+                if q.answer_key is not None and not is_quiz:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Bagian {si + 1} soal {qi + 1}: Answer key hanya tersedia untuk tipe quiz",
+                    )
+                keyed = bool((q.answer_key or "").strip())
                 question = Question(
                     form_id=form.id,
                     type=QuestionType(q.type),
                     question_text=q.question_text,
-                    points=(0 if (is_quiz or q.type in _NO_GRADE_TYPES) else q.points),
+                    points=(0 if (is_quiz or q.type in _NO_GRADE_TYPES or (q.type in ("essay", "short_answer") and not keyed)) else q.points),
                     is_scored=q.is_scored,
                     is_required=q.is_required,
                     section_id=section.id,
                     password_keyword=q.password_keyword if q.type == "password" else None,
+                    answer_key=q.answer_key if q.type in ("essay", "short_answer") else None,
+                    allow_other=q.allow_other if q.type in ("multiple_choice", "checkbox") else False,
                     order_index=order,
                     created_at=now,
                 )

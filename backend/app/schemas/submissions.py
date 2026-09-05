@@ -26,6 +26,7 @@ class QuestionWithOptions(BaseModel):
     group_id: Optional[str] = None
     image: Optional[dict] = None
     options: list[OptionPublic]
+    allow_other: bool = False
 
 
 class SubmissionCreateResponse(BaseModel):

@@ -6,6 +6,17 @@ from pydantic import BaseModel, Field, model_validator
 
 QUESTION_TYPE_PATTERN = r"^(multiple_choice|checkbox|dropdown|short_answer|essay|password|date|time|datetime|file_upload)$"
 NO_OPTION_TYPES = ("short_answer", "essay", "password", "date", "time", "datetime", "file_upload")
+# Tipe yang boleh mengaktifkan opsi "Lainnya" (ketik sendiri).
+OTHER_TYPES = ("multiple_choice", "checkbox")
+
+
+def check_allow_other(allow_other: bool | None, q_type: str | None) -> None:
+    """Validasi flag Lainnya. q_type=None berarti tipe tak diketahui
+    (partial update) — lolos, router melengkapi dengan tipe efektif dari DB."""
+    if not allow_other:
+        return
+    if q_type is not None and q_type not in OTHER_TYPES:
+        raise ValueError("Opsi lainnya hanya untuk multiple choice atau checkbox")
 # Tipe isian yang bisa dinilai otomatis bila punya answer_key (khusus quiz).
 KEYWORD_TYPES = ("essay", "short_answer")
 MAX_KEYWORDS = 10
@@ -82,6 +93,7 @@ class QuestionCreate(BaseModel):
     section_id: Optional[int] = None
     password_keyword: Optional[str] = Field(None, min_length=1, max_length=255)
     answer_key: Optional[str] = Field(None, min_length=1, max_length=500)
+    allow_other: bool = False
     options: list[OptionCreate] = []
 
     @model_validator(mode="after")
@@ -93,6 +105,7 @@ class QuestionCreate(BaseModel):
         if self.type == "password" and not (self.password_keyword or "").strip():
             raise ValueError("password questions require a password_keyword")
         check_answer_key(self.answer_key, self.type)
+        check_allow_other(self.allow_other, self.type)
         return self
 
     @model_validator(mode="after")
@@ -115,6 +128,7 @@ class QuestionUpdate(BaseModel):
     section_id: Optional[int] = None
     password_keyword: Optional[str] = Field(None, min_length=1, max_length=255)
     answer_key: Optional[str] = Field(None, min_length=1, max_length=500)
+    allow_other: Optional[bool] = None
     options: Optional[list[OptionUpdate]] = None
 
     @model_validator(mode="after")
@@ -126,9 +140,10 @@ class QuestionUpdate(BaseModel):
                 raise ValueError("multiple_choice, checkbox and dropdown questions require at least 1 option")
             if q_type in NO_OPTION_TYPES and len(opts) > 0:
                 raise ValueError("this question type must not have options")
-        # answer_key hanya bisa divalidasi penuh di sini bila type ikut dikirim;
-        # router melengkapi dengan tipe efektif dari DB (lihat update_question)
+        # answer_key/allow_other hanya bisa divalidasi penuh di sini bila type
+        # ikut dikirim; router melengkapi dengan tipe efektif dari DB
         check_answer_key(self.answer_key, self.type)
+        check_allow_other(self.allow_other, self.type)
         return self
 
     @model_validator(mode="after")

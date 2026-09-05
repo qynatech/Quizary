@@ -26,6 +26,7 @@ from app.schemas.question import (
     SectionCreate,
     SectionUpdate,
     SectionReorderRequest,
+    check_allow_other,
     check_answer_key,
 )
 
@@ -95,6 +96,7 @@ def _build_question(q: Question, request: Request) -> dict:
         # Keyword hanya untuk owner (endpoint ini); payload publik tidak memilikinya.
         "password_keyword": q.password_keyword if q.type.value == "password" else None,
         "answer_key": q.answer_key if q.type.value in _KEYWORD_TYPES else None,
+        "allow_other": bool(q.allow_other),
         "options": opts,
         "image": _image_obj(q_img[0], request) if q_img else None,
     }
@@ -298,6 +300,7 @@ def create_question(
         form_id=form.id,
         type=QuestionType(body.type),
         question_text=body.question_text,
+        allow_other=body.allow_other if body.type in ("multiple_choice", "checkbox") else False,
         # Auto mode allocates from the 100-point pool after insert; manual mode
         # preserves the creator's per-question value. Non-graded types always 0;
         # essay/short_answer tanpa kunci juga 0 (belum bisa dinilai).
@@ -361,7 +364,8 @@ def update_question(
                 detail="Password questions require a password_keyword",
             )
 
-    # Answer key divalidasi terhadap tipe efektif (payload atau tersimpan).
+    # Answer key & flag Lainnya divalidasi terhadap tipe efektif
+    # (payload atau tersimpan).
     if "answer_key" in update_data:
         try:
             check_answer_key(update_data["answer_key"], new_type_str)
@@ -370,10 +374,18 @@ def update_question(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=str(e),
             )
-        if update_data["answer_key"] is not None and form.type.value != "quiz":
+        if update_data.get("answer_key") is not None and form.type.value != "quiz":
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Answer key hanya tersedia untuk tipe quiz",
+            )
+    if "allow_other" in update_data:
+        try:
+            check_allow_other(update_data["allow_other"], new_type_str)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(e),
             )
     # Menyalakan penilaian essay/short_answer wajib disertai kunci (payload
     # atau yang sudah tersimpan) — kalau tidak, toggle tak bisa menyala.
@@ -421,6 +433,9 @@ def update_question(
         # Tinggalkan tipe isian berkunci → kunci ikut dibersihkan
         if new_type.value not in _KEYWORD_TYPES and "answer_key" not in update_data:
             question.answer_key = None
+        # Tinggalkan MC/checkbox → flag Lainnya ikut dibersihkan
+        if new_type.value not in ("multiple_choice", "checkbox") and "allow_other" not in update_data:
+            question.allow_other = False
 
     # Toggle is_scored: off → force 0 points; on (no explicit points) → rejoin pool
     was_scored = question.is_scored
@@ -595,6 +610,7 @@ def duplicate_question(
         group_id=src.group_id,
         password_keyword=src.password_keyword,
         answer_key=src.answer_key,
+        allow_other=src.allow_other,
         order_index=new_order,
         created_at=now_wib(),
     )

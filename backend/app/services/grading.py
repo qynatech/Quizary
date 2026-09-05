@@ -83,6 +83,10 @@ def grade_answer(answer: Answer, question: Question):
         return None, Decimal("0")
 
     if question.type in (QuestionType.multiple_choice, QuestionType.checkbox):
+        # Opsi "Lainnya" terisi teks bebas — tak bisa diverifikasi otomatis,
+        # selalu salah (0) walau opsi lain cocok persis.
+        if (answer.answer_text or "").strip():
+            return False, Decimal("0")
         correct_ids = {o.id for o in question.options if o.is_correct}
         selected_ids = {ao.option_id for ao in answer.selected_options}
         if correct_ids and selected_ids == correct_ids:

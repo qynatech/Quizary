@@ -89,12 +89,14 @@ Bentuk:
   {"type": "salah satu: %s", "question_text": "teks soal",
    "is_required": true, "points": 1,
    "options": [{"option_text": "teks opsi", "is_correct": true}],
-   "password_keyword": null}
+   "password_keyword": null, "answer_key": null, "allow_other": false}
 ]}], "settings": {"shuffle_questions": false, "shuffle_options": false, "timer_minutes": null, "require_login": false, "submission_limit": "unlimited", "show_leaderboard": false, "is_restricted": false, "show_in_history": true, "reveal_score": true, "reveal_answers": true, "display_style": "card", "scoring_mode": "auto", "theme_color": null, "thank_you_message": null, "starts_at": null, "ends_at": null}}
 
 Aturan:
 - options HANYA untuk multiple_choice/checkbox/dropdown (2-4 opsi); tipe lain: options [] dan password_keyword null.
 - password_keyword HANYA untuk type password (isi kata sandinya), selain itu null.
+- answer_key SELALU null — JANGAN mengarang kunci jawaban (creator mengisinya saat review; kunci salah = penilaian otomatis salah).
+- allow_other HANYA true bila user EKSPILISIT meminta opsi "lainnya"/"other"/ketik-sendiri, dan HANYA untuk multiple_choice/checkbox; selain itu false.
 - Quiz: multiple_choice WAJIB tepat 1 option is_correct=true; checkbox boleh >1; timer_minutes WAJIB angka 1-1440.
 - Bukan quiz: timer_minutes null, is_correct semua false, show_leaderboard false, scoring_mode auto.
 - submission_limit: "unlimited" atau "once" (once = wajib login, auto-coerce).
@@ -374,6 +376,10 @@ def _coerce_question(raw: dict) -> dict | None:
     except (TypeError, ValueError):
         points = 1
     kw = str(raw.get("password_keyword") or "").strip() or None
+    # answer_key: LLM dilarang mengarang kunci (lihat SYSTEM_INSTRUCTION) —
+    # paksa null agar soal tak gugur validasi; creator mengisi saat review.
+    # allow_other: teruskan hanya untuk MC/checkbox, selain itu False.
+    allow_other = bool(raw.get("allow_other", False)) and q_type in ("multiple_choice", "checkbox")
     try:
         q = QuestionCreate(
             type=q_type,
@@ -381,6 +387,8 @@ def _coerce_question(raw: dict) -> dict | None:
             points=max(0, min(999, points)),
             is_required=bool(raw.get("is_required", True)),
             password_keyword=kw if q_type == "password" else None,
+            answer_key=None,
+            allow_other=allow_other,
             options=opts,
         )
     except Exception:

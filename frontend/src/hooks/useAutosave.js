@@ -48,14 +48,39 @@ export function useAutosave({ submissionId, onExpired }) {
     } catch {}
   }, [submissionId])
 
+  // Nilai jawaban: array (option_ids) | string (answer_text) | object
+  // {ids, text} (opsi + teks "Lainnya"). Objek dipertahankan apa adanya
+  // agar draft/restore tidak kehilangan separuh jawaban campuran.
+  const toPayload = (qId, value) => {
+    if (Array.isArray(value)) return { question_id: qId, option_ids: value }
+    if (value && typeof value === 'object') {
+      return { question_id: Number(qId), option_ids: value.ids || [], answer_text: value.text ?? null }
+    }
+    return { question_id: qId, answer_text: value }
+  }
+
+  const draftValue = (payload) => {
+    if (Array.isArray(payload.option_ids)) {
+      return payload.answer_text != null
+        ? { ids: payload.option_ids, text: payload.answer_text }
+        : payload.option_ids
+    }
+    return payload.answer_text
+  }
+
+  const isEmptyValue = (value) => Array.isArray(value)
+    ? !value.length
+    : (value && typeof value === 'object'
+      ? !(value.ids || []).length && !String(value.text || '').trim()
+      : !value)
+
   const stashDraft = useCallback((qId, payload) => {
     try {
       const all = loadDraft(submissionId)
-      const value = Array.isArray(payload.option_ids) ? payload.option_ids : payload.answer_text
+      const value = draftValue(payload)
       // Nilai kosong tidak distash — menghindari menghidupkan jawaban yang
       // memang sengaja dikosongkan user saat offline.
-      const empty = Array.isArray(value) ? !value.length : !value
-      if (empty) dropDraftEntry(qId)
+      if (isEmptyValue(value)) dropDraftEntry(qId)
       else {
         all[qId] = { value, ts: Date.now() }
         localStorage.setItem(draftKey(submissionId), JSON.stringify(all))
@@ -93,9 +118,7 @@ export function useAutosave({ submissionId, onExpired }) {
   const save = useCallback((qId, value) => {
     clearTimeout(timers.current[qId])
     setStatus(qId, 'saving')
-    const payload = Array.isArray(value)
-      ? { question_id: qId, option_ids: value }
-      : { question_id: qId, answer_text: value }
+    const payload = toPayload(qId, value)
     stashDraft(qId, payload)
     timers.current[qId] = setTimeout(() => {
       flush(qId, payload)
@@ -105,10 +128,7 @@ export function useAutosave({ submissionId, onExpired }) {
   const flushAll = useCallback(async (answers) => {
     const tasks = Object.entries(answers).map(([qId, value]) => {
       clearTimeout(timers.current[qId])
-      const payload = Array.isArray(value)
-        ? { question_id: Number(qId), option_ids: value }
-        : { question_id: Number(qId), answer_text: value }
-      return flush(qId, payload)
+      return flush(qId, toPayload(qId, value))
     })
     await Promise.all(tasks)
   }, [flush])

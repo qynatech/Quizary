@@ -29,9 +29,18 @@ export default function FormCreate() {
   const fetchCats = () => api.get('/categories').then((r) => setCategories(r.data)).catch(()=>{})
   useEffect(() => { fetchCats() }, [])
 
+  // Rantai setting ala backend & FormEdit: once ⇒ require_login.
+  const onceLocked = form.submission_limit === 'once'
+
   const handleChange = (e) => {
     const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    setForm((prev) => {
+      const next = { ...prev, [name]: value }
+      if (name === 'submission_limit' && value === 'once') {
+        next.require_login = true
+      }
+      return next
+    })
   }
 
   const handleSubmit = async (e) => {
@@ -143,8 +152,8 @@ export default function FormCreate() {
             <Card className="divide-y divide-gray-100 dark:divide-gray-800">
               <SettingRow
                 title={t('formCreate.requireLogin')}
-                desc={t('formCreate.requireLoginDesc')}
-                control={<Toggle label={t('formCreate.requireLogin')} checked={form.require_login} onChange={(v) => setForm((prev) => ({ ...prev, require_login: v }))} />}
+                desc={onceLocked ? t('formCreate.requireLoginDescLocked') : t('formCreate.requireLoginDesc')}
+                control={<Toggle label={t('formCreate.requireLogin')} checked={form.require_login} disabled={onceLocked} onChange={(v) => setForm((prev) => ({ ...prev, require_login: v }))} />}
               />
               <div className="py-4">
                 <Select label={t('formCreate.submissionLimit')} name="submission_limit" value={form.submission_limit} onChange={handleChange}>

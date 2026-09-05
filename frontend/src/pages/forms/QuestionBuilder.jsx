@@ -47,7 +47,7 @@ const TYPE_HINTS = {
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
-function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, questionId, sections, sectionsAllowed, scoringMode }) {
+function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, questionId, sections, sectionsAllowed, scoringMode, poolCount = 0 }) {
   const toast = useToast()
   const { t } = useTranslation()
   const typeLabels = {
@@ -80,6 +80,7 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
     options: [],
     password_keyword: '',
     answer_key: '',
+    allow_other: false,
     ...(initial || {}),
     section_id: initial?.section_id || singleSectionId,
   })
@@ -259,6 +260,14 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
   const hasAnswerKey = !!(form.answer_key || '').trim()
   const noGrade = NO_GRADE_TYPES.includes(form.type) && !(isKeywordType && hasAnswerKey)
   const hasCorrect = form.options.some((o) => o.is_correct)
+  // Proyeksi eksak jatah soal baru di pool auto-100: backend menaruh soal baru
+  // paling akhir lalu membagi rata (sisa ke urutan awal) — tiru rumusnya persis
+  // agar preview tambah-soal sama dengan hasil tersimpan (bukan default 1/0).
+  const projectedAutoPoints = (() => {
+    const total = (poolCount || 0) + 1
+    const base = Math.floor(100 / total)
+    return base + (((total - 1) < (100 % total)) ? 1 : 0)
+  })()
 
   return (
     <div className="space-y-5">
@@ -392,7 +401,7 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
               <div>
                 <label className="field-label">{t('questionBuilder.points')}</label>
                 <p className="text-sm text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-ink-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 h-11 flex items-center">
-                  {scoringMode === 'auto' ? t('questionBuilder.pointsAuto', { points: form.points }) : t('questionBuilder.pointsAuto', { points: form.points })}
+                  {scoringMode === 'auto' ? t('questionBuilder.pointsAuto', { points: projectedAutoPoints }) : t('questionBuilder.pointsAuto', { points: form.points })}
                 </p>
               </div>
             )}
@@ -536,6 +545,19 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
           {needsOptions && form.options.length > 0 && !hasCorrect && isQuiz && form.is_scored && CORRECT_OPTION_TYPES.includes(form.type) && (
             <p className="text-xs text-warn mt-2">{t('questionBuilder.markCorrectWarning')}</p>
           )}
+          {(form.type === 'multiple_choice' || form.type === 'checkbox') && (
+            <div className="flex items-center gap-2.5 mt-3">
+              <Toggle
+                label={t('questionBuilder.allowOther')}
+                checked={!!form.allow_other}
+                onChange={(v) => setForm((p) => ({ ...p, allow_other: v }))}
+              />
+              <div className="min-w-0">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('questionBuilder.allowOther')}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{t('questionBuilder.allowOtherHint')}</p>
+              </div>
+            </div>
+          )}
           {optionsErr && optionsMsg && (
             <p className="text-xs font-medium text-incorrect mt-2">{optionsMsg}</p>
           )}
@@ -578,6 +600,9 @@ function QuestionCard({ question, index, onDelete, onDuplicate, duplicating, isD
             {selected ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : index + 1}
           </span>
           <Badge scheme="gray">{typeLabels[question.type]}</Badge>
+          {question.allow_other && (
+            <Badge scheme="primary" title={t('questionBuilder.allowOtherHint')}>{t('questionBuilder.otherBadge')}</Badge>
+          )}
           {groupId && (
             <Badge scheme="primary" title="Story group questions always appear in sequence even with shuffle active. Select question(s) then click Ungroup to remove.">
               <span className="hidden sm:inline">{t('questionBuilder.groupLabel', { n: groupIndex })}</span>
@@ -873,7 +898,7 @@ function SortableGroupCard({ groupId, questions: members, groupIndex, expanded, 
                               <span className="font-display font-semibold text-ink dark:text-gray-100 text-sm">Edit Soal {gIdx + 1}</span>
                               <button onClick={onCancel} className="p-1.5 rounded-lg text-gray-400 hover:text-ink hover:bg-gray-100 dark:hover:bg-ink-800"><X className="w-4 h-4" /></button>
                             </div>
-                            <QuestionForm initial={{ question_text: q.question_text, type: q.type, points: q.points, is_scored: q.is_scored !== false, is_required: q.is_required, section_id: q.section_id || null, password_keyword: q.password_keyword || '', answer_key: q.answer_key || '', image: q.image, options: q.options?.length ? q.options.map((o) => ({ id: o.id, option_text: o.option_text, is_correct: o.is_correct, image: o.image })) : [{ option_text: '', is_correct: false }] }} onSave={onSave} onCancel={onCancel} loading={saveLoading} isQuiz={isQuiz} errors={errors} questionId={q.id} sections={sections} sectionsAllowed={sectionsAllowed} scoringMode={scoringMode} />
+                            <QuestionForm initial={{ question_text: q.question_text, type: q.type, points: q.points, is_scored: q.is_scored !== false, is_required: q.is_required, section_id: q.section_id || null, password_keyword: q.password_keyword || '', answer_key: q.answer_key || '', allow_other: !!q.allow_other, image: q.image, options: q.options?.length ? q.options.map((o) => ({ id: o.id, option_text: o.option_text, is_correct: o.is_correct, image: o.image })) : [{ option_text: '', is_correct: false }] }} onSave={onSave} onCancel={onCancel} loading={saveLoading} isQuiz={isQuiz} errors={errors} questionId={q.id} sections={sections} sectionsAllowed={sectionsAllowed} scoringMode={scoringMode} />
                           </Card>
                         </motion.div>
                       )
@@ -962,6 +987,7 @@ function QuestionItem({ q, index, onEdit, onDelete, onDuplicate, duplicating, is
               section_id: q.section_id || null,
               password_keyword: q.password_keyword || '',
               answer_key: q.answer_key || '',
+              allow_other: !!q.allow_other,
               image: q.image,
               options: q.options?.length
                 ? q.options.map((o) => ({ id: o.id, option_text: o.option_text, is_correct: o.is_correct, image: o.image }))
@@ -1187,6 +1213,14 @@ export default function QuestionBuilder() {
   }, [questions, idToIndex])
   const blockIds = useMemo(() => allBlocks.map((b) => b.id), [allBlocks])
 
+  // Jumlah soal yang kini makan pool auto-100 (cermin filter backend
+  // distribute_quiz_points) — untuk proyeksi jatah soal baru di form tambah.
+  const poolCount = useMemo(() => questions.filter((q) =>
+    q.is_scored !== false
+    && !['date', 'time', 'datetime', 'file_upload', 'dropdown'].includes(q.type)
+    && (q.type !== 'essay' || (q.answer_key || '').trim())
+  ).length, [questions])
+
   const load = (silent = false) => {
     if (!silent) setLoading(true)
     Promise.all([
@@ -1222,6 +1256,9 @@ export default function QuestionBuilder() {
       password_keyword: data.type === 'password' ? data.password_keyword : undefined,
       answer_key: (data.type === 'essay' || data.type === 'short_answer')
         ? ((data.answer_key || '').trim() || null)
+        : undefined,
+      allow_other: (data.type === 'multiple_choice' || data.type === 'checkbox')
+        ? !!data.allow_other
         : undefined,
       options: OPTION_TYPES.includes(data.type)
         ? data.options.filter((o) => {
@@ -1822,6 +1859,7 @@ export default function QuestionBuilder() {
                 sections={sections}
                 sectionsAllowed={sectionsAllowed}
                 scoringMode={scoringMode}
+                poolCount={poolCount}
               />
             </Card>
           </motion.div>

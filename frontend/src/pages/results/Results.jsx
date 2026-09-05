@@ -579,7 +579,12 @@ export default function Results() {
                                           ) : a.question_type === 'file_upload' ? (
                                             <a href={a.answer_file} target="_blank" rel="noopener noreferrer" className="text-primary dark:text-primary-300 underline">{t('results.viewAnswerFile')}</a>
                                           ) : ['multiple_choice', 'checkbox', 'dropdown'].includes(a.question_type) ? (
-                                            <RichText html={a.selected_options.map((s) => sanitizeHtml(s).replace(/<[^>]*>/g, '') || s).join(' · ')} className="rich-text" />
+                                            <>
+                                              <RichText html={a.selected_options.map((s) => sanitizeHtml(s).replace(/<[^>]*>/g, '') || s).join(' · ')} className="rich-text" />
+                                              {a.answer_text && (
+                                                <span className="block mt-1 text-xs text-gray-500 dark:text-gray-400">{t('results.otherAnswer', { text: a.answer_text })}</span>
+                                              )}
+                                            </>
                                           ) : (
                                             <RichText html={a.answer_text} className="rich-text" />
                                           )}

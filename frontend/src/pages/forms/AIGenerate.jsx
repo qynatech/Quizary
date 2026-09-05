@@ -119,6 +119,18 @@ export default function AIGenerate() {
 
   const patchSettings = (patch) => setDraft((d) => (d ? { ...d, settings: { ...d.settings, ...patch } } : d))
 
+  // Ubah 1 soal dalam draf (si/qi = indeks section/question).
+  const patchQuestion = (si, qi, patch) => setDraft((d) => {
+    if (!d) return d
+    return {
+      ...d,
+      sections: d.sections.map((s, i) => (i !== si ? s : {
+        ...s,
+        questions: s.questions.map((q, j) => (j !== qi ? q : { ...q, ...patch })),
+      })),
+    }
+  })
+
   // Mirror rantai backend: restricted ⇒ once ⇒ require_login.
   const toggleDraft = (key, value) => {
     if (key === 'is_restricted' && value) {
@@ -185,7 +197,14 @@ export default function AIGenerate() {
           starts_at: s.starts_at || null,
           ends_at: s.ends_at || null,
         },
-        sections: draft.sections,
+        // Kunci kosong (cuma spasi) dinull-kan agar lolos min_length backend.
+        sections: draft.sections.map((s) => ({
+          ...s,
+          questions: s.questions.map((q) => ({
+            ...q,
+            answer_key: (q.answer_key || '').trim() || null,
+          })),
+        })),
       })
       toast.success(t('aiGenerate.accepted'))
       navigate(`/forms/${res.data.id}`)
@@ -385,6 +404,33 @@ export default function AIGenerate() {
                           </li>
                         ))}
                       </ul>
+                    )}
+                    {(q.type === 'multiple_choice' || q.type === 'checkbox') && (
+                      <label className="flex items-center gap-2.5 pt-1 cursor-pointer">
+                        <Toggle
+                          label={t('aiGenerate.allowOther')}
+                          checked={!!q.allow_other}
+                          onChange={(v) => patchQuestion(si, qi, { allow_other: v })}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm text-gray-600 dark:text-gray-400">{t('aiGenerate.allowOther')}</span>
+                          <span className="block text-xs text-gray-400 dark:text-gray-500">{t('aiGenerate.allowOtherHint')}</span>
+                        </span>
+                      </label>
+                    )}
+                    {formType === 'quiz' && (q.type === 'essay' || q.type === 'short_answer') && (
+                      <div className="pt-1">
+                        <span className="field-label">{t('aiGenerate.answerKey')}</span>
+                        <input
+                          value={q.answer_key || ''}
+                          onChange={(e) => patchQuestion(si, qi, { answer_key: e.target.value })}
+                          placeholder={t('aiGenerate.answerKeyPlaceholder')}
+                          className="input-field font-mono h-10 text-sm w-full"
+                          maxLength={500}
+                          spellCheck={false}
+                        />
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('aiGenerate.answerKeyHint')}</p>
+                      </div>
                     )}
                   </div>
                 ))}

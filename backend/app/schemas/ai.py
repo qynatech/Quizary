@@ -76,6 +76,10 @@ class AiDraftQuestion(BaseModel):
     points: int = 0
     options: list[AiDraftOption] = []
     password_keyword: Optional[str] = None
+    # Kunci jawaban (creator yang isi saat review — AI tidak menebak) dan
+    # flag opsi "Lainnya" (true hanya bila user memintanya di prompt).
+    answer_key: Optional[str] = None
+    allow_other: bool = False
 
 
 class AiDraftSection(BaseModel):
