@@ -433,7 +433,7 @@ Auth: Bearer Token (pemilik form terkait)
 - Tipe soal: `multiple_choice`, `checkbox`, `dropdown` (butuh options; mc & dropdown tepat 1 correct), `short_answer`, `essay`, `date` (jawaban `YYYY-MM-DD`), `time` (jawaban `HH:MM`), `file_upload` (jawaban lewat upload file; tanpa options). `date`/`time`/`file_upload` tidak dinilai otomatis (points 0). `essay`/`short_answer` ikut dinilai otomatis **bila punya `answer_key`** (khusus quiz); tanpa kunci tetap tidak dinilai (points 0).
 - **`answer_key`** (`string(1-500)`, opsional, hanya `essay`/`short_answer` quiz): satu/beberapa kunci dipisah `;`/baris baru (maks 10 kunci × 100 char). Jawaban benar bila **salah satu kunci terkandung** dalam teks jawaban (trim, lowercase, spasi dirapatkan). Cocok → poin penuh; tidak cocok → 0; tanpa kunci → tidak dinilai (`is_correct=null`). `is_scored=true` pada essay/short_answer wajib disertai kunci (422 bila tidak). Owner-only: tidak pernah muncul di payload publik/responden.
 - **`allow_other`** (`boolean`, default `false`, hanya `multiple_choice`/`checkbox`): opsi "Lainnya" (ketik sendiri). Hanya tampil ke responden bila `true` (payload publik `questions[].allow_other`). Autosave boleh mengirim `option_ids` + `answer_text` bersamaan **hanya** bila flag on (selain itu teks dibuang / 422 bila diisi; maks 500 char). Di `multiple_choice` (satu jawaban) Lainnya eksklusif: memilih/mengetik Lainnya melepas opsi biasa dan sebaliknya. Jawaban ber-teks-Lainnya → `is_correct=false`, poin 0 (teks bebas tak bisa diverifikasi otomatis), tapi tetap dihitung menjawab untuk soal wajib. Tampil di hasil sebagai "Lainnya: {teks}".
-- Setiap soal bisa punya `section_id` (nullable) — kelompok soal per halaman. Section dikelola lewat `GET/POST /forms/{id}/sections`, `PATCH /sections/{id}` (rename), `PATCH /sections/reorder` (urutkan), dan `DELETE /sections/{id}`.
+- Setiap soal bisa punya `section_id` (nullable) — kelompok soal per halaman. Section dikelola lewat `GET/POST /forms/{id}/sections`, `PATCH /sections/{id}` (rename), `PATCH /sections/reorder` (urutkan), dan `DELETE /sections/{id}`. Saat section dihapus, question aktif di dalamnya dipindahkan ke section terdekat yang tersisa (section sebelumnya diprioritaskan, lalu section berikutnya); section terakhir tidak boleh dihapus.
 - Jawaban file: `POST /submissions/{id}/answers/{question_id}/file` (multipart, field `file`). Tipe diizinkan: pdf, doc, docx, xls, xlsx, ppt, pptx, txt, csv, png, jpg, jpeg, zip. Response `{ "answer_file": url, "filename": ... }`.
 
 **Distribusi poin quiz (pool 100):**
@@ -1073,7 +1073,7 @@ Auth: Bearer Token
 | GET | `/api/forms/{id}/sections` | Bearer | Daftar section (kelompok soal) |
 | POST | `/api/forms/{id}/sections` | Bearer | Tambah section |
 | PATCH | `/api/sections/{id}` | Bearer | Ubah nama section |
-| DELETE | `/api/sections/{id}` | Bearer | Hapus section (soal tetap ada) |
+| DELETE | `/api/sections/{id}` | Bearer | Hapus section dan pindahkan soalnya ke section terdekat |
 | PATCH | `/api/sections/reorder` | Bearer | Urutkan ulang section |
 | POST | `/api/submissions/{id}/answers/{question_id}/file` | Bearer/anon | Upload jawaban file |
 | GET | `/api/forms/{id}/results` | Bearer | Hasil submission (pemilik) |

@@ -1065,7 +1065,7 @@ function QuestionItem({ q, index, onEdit, onDelete, onDuplicate, duplicating, is
   )
 }
 
-function SectionHeader({ section, count, editing, draft, setDraft, onEdit, onSave, onCancel, onDelete, collapsible, collapsed, onToggle }) {
+function SectionHeader({ section, count, canDelete, editing, draft, setDraft, onEdit, onSave, onCancel, onDelete, collapsible, collapsed, onToggle }) {
   const { t } = useTranslation()
   return (
     <div className="rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800/50 border-l-4 border-primary -mx-3 px-3 sm:px-4 py-3 mb-3">
@@ -1109,9 +1109,11 @@ function SectionHeader({ section, count, editing, draft, setDraft, onEdit, onSav
               <button onClick={onEdit} title="Rename section" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-primary hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors shrink-0">
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={onDelete} title="Delete section" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-incorrect hover:bg-incorrect-soft transition-colors shrink-0">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {canDelete && (
+                <button onClick={onDelete} title="Delete section" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-incorrect hover:bg-incorrect-soft transition-colors shrink-0">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1730,12 +1732,12 @@ export default function QuestionBuilder() {
     fd.append('file', file)
     if (importSectionId) fd.append('section_id', importSectionId)
     try {
-      await api.post(`/forms/${formId}/import/docx`, fd, {
+      const { data } = await api.post(`/forms/${formId}/import/docx`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       setShowImportModal(false)
       setImportSectionId('')
-      toast.success(t('questionBuilder.importSuccess', { count: 0 }))
+      toast.success(t('questionBuilder.importSuccess', { count: data?.imported_count ?? 0 }))
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || err.response?.data?.detail || t('questionBuilder.importFailed'))
@@ -1782,9 +1784,10 @@ export default function QuestionBuilder() {
     if (!sectionDeleteTarget) return
     setConfirmLoading(true)
     try {
-      await api.delete(`/sections/${sectionDeleteTarget.id}`)
+      const { data } = await api.delete(`/sections/${sectionDeleteTarget.id}`)
       setSectionDeleteTarget(null)
-      toast.success('Section deleted')
+      const moved = data?.moved_question_count || 0
+      toast.success(moved > 0 ? `Section deleted — ${moved} question(s) moved` : 'Section deleted')
       load()
     } catch {
       toast.error('Failed to delete section')
@@ -2010,6 +2013,7 @@ export default function QuestionBuilder() {
                           <SectionHeader
                             section={sec}
                             count={questions.filter((q) => q.section_id === sec.id).length}
+                            canDelete={sections.length > 1}
                             editing={editingSectionId === sec.id}
                             draft={sectionTitleDraft}
                             setDraft={setSectionTitleDraft}

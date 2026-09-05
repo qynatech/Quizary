@@ -16,7 +16,7 @@ import { Button, Badge, ConfirmModal } from '../../components/ui'
 
 const QUESTION_PREFIX = 'q-'
 
-function SortableSectionCard({ section, questions, onDelete, editing, editDraft, setEditDraft, onEditStart, onEditSave, onEditCancel, collapsed, onToggleCollapse, onMove, isFirst, isLast }) {
+function SortableSectionCard({ section, questions, canDelete, onDelete, editing, editDraft, setEditDraft, onEditStart, onEditSave, onEditCancel, collapsed, onToggleCollapse, onMove, isFirst, isLast }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useSortable({
     id: section.id,
     data: { type: 'section' },
@@ -106,9 +106,11 @@ function SortableSectionCard({ section, questions, onDelete, editing, editDraft,
             <button onClick={onEditStart} title="Rename section" className="text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-primary p-1.5 transition-colors shrink-0">
               <Pencil className="w-3.5 h-3.5" />
             </button>
-            <button onClick={onDelete} title="Delete section" className="text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-incorrect p-1.5 transition-colors shrink-0">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            {canDelete && (
+              <button onClick={onDelete} title="Delete section" className="text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-incorrect p-1.5 transition-colors shrink-0">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -351,9 +353,14 @@ export default function SectionManager({ formId, show, onClose, sections: initia
   const deleteSection = async () => {
     if (!deleteTarget) return
     try {
-      await api.delete(`/sections/${deleteTarget.id}`)
+      const { data } = await api.delete(`/sections/${deleteTarget.id}`)
       setDeleteTarget(null)
-      toast.success('Section deleted')
+      const moved = data?.moved_question_count || 0
+      toast.success(
+        moved > 0
+          ? `Section deleted — ${moved} question(s) moved to a nearby section`
+          : 'Section deleted'
+      )
       load()
       onSaved()
     } catch {
@@ -449,6 +456,7 @@ export default function SectionManager({ formId, show, onClose, sections: initia
                        key={section.id}
                        section={section}
                        questions={questions}
+                       canDelete={sections.length > 1}
                        editing={editingId === section.id}
                        editDraft={editDraft}
                        setEditDraft={setEditDraft}
@@ -511,7 +519,7 @@ export default function SectionManager({ formId, show, onClose, sections: initia
             <ConfirmModal
               show={!!deleteTarget}
               title="Delete Section?"
-              message={`Section "${deleteTarget?.title || ''}" will be deleted. Questions inside remain, just removed from section.`}
+              message={`Section "${deleteTarget?.title || ''}" will be deleted. Questions inside will be moved to a nearby section.`}
               onConfirm={deleteSection}
               onCancel={() => setDeleteTarget(null)}
               confirmText="Delete"

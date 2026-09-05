@@ -517,7 +517,7 @@
     "emptySection": "Belum ada pertanyaan di bagian ini.",
     "sectionPlaceholder": "Nama bagian, cth. Bagian A",
     "confirmDeleteSectionTitle": "Hapus Bagian?",
-    "confirmDeleteSectionMessage": "Bagian “{{title}}” akan dihapus. Soal di dalamnya tidak akan terhapus.",
+    "confirmDeleteSectionMessage": "Bagian “{{title}}” akan dihapus. Soal di dalamnya akan dipindahkan ke bagian terdekat.",
     "confirmDeleteQuestionsTitle": "Hapus {{count}} soal?",
     "confirmDeleteQuestionsMessage": "Soal yang dipilih akan dihapus permanen.",
     "confirmDeleteQuestionTitle": "Hapus Pertanyaan?",

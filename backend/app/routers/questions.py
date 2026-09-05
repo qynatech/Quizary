@@ -165,11 +165,14 @@ def reorder_sections(
 
 
 def _section_dict(section: Section) -> dict:
+    # Soft-deleted questions remain related to their section in the ORM, so
+    # don't let them inflate the section badge count.
+    active_question_count = sum(1 for q in section.questions if not q.is_deleted)
     return {
         "id": section.id,
         "title": section.title,
         "order_index": section.order_index,
-        "question_count": len(section.questions),
+        "question_count": active_question_count,
     }
 
 
@@ -240,12 +243,40 @@ def delete_section(
     form = db.get(Form, section.form_id)
     if not form or form.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Anda bukan pemilik form ini")
-    remaining = db.query(Section).filter(Section.form_id == section.form_id).count()
-    if remaining <= 1:
+    other_sections = (
+        db.query(Section)
+        .filter(Section.form_id == section.form_id, Section.id != section.id)
+        .order_by(Section.order_index, Section.id)
+        .all()
+    )
+    if not other_sections:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Tidak bisa menghapus section terakhir")
+
+    # A section is only an organizer. Deleting it must not leave its questions
+    # orphaned (or make them appear to disappear from the form). Move active
+    # questions to the nearest surviving section: prefer the previous section,
+    # otherwise use the next one. With one survivor, it naturally becomes the
+    # destination for all questions.
+    destination = next(
+        (s for s in reversed(other_sections) if s.order_index < section.order_index),
+        other_sections[0],
+    )
+    moved_count = (
+        db.query(Question)
+        .filter(
+            Question.form_id == section.form_id,
+            Question.section_id == section.id,
+            Question.is_deleted.is_(False),
+        )
+        .update({Question.section_id: destination.id}, synchronize_session=False)
+    )
     db.delete(section)
     db.commit()
-    return {"message": "Section dihapus"}
+    return {
+        "message": "Section dihapus",
+        "moved_question_count": moved_count,
+        "destination_section_id": destination.id,
+    }
 
 
 # ── POST /forms/{form_id}/questions ───────────────────────────────────────────

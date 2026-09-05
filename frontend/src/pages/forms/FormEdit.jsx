@@ -408,7 +408,7 @@ export default function FormEdit() {
       <FormSubNav formId={id} className="mt-5" />
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-        <div className="space-y-6">
+        <div className="space-y-6 order-2 lg:order-1">
           <CollapsibleCard title={t('formEdit.basicInfo')} icon={<Info className="w-4 h-4" />} open={basicOpen} onToggle={setBasicOpen}>
             <div className="space-y-5">
               <div ref={titleRef}>
@@ -689,7 +689,7 @@ export default function FormEdit() {
           </CollapsibleCard>
         </div>
 
-        <div className="space-y-6 lg:sticky lg:top-6 self-start">
+        <div className="space-y-6 lg:sticky lg:top-6 self-start order-1 lg:order-2">
           <CollapsibleCard title={t('formEdit.share')} icon={<Link2 className="w-4 h-4" />} defaultOpen>
             <ShareLink value={`${window.location.origin}/q/${form.short_code}`} />
             <div className="mt-4">

@@ -1663,7 +1663,7 @@ export default function AnswerQuiz() {
               {formPage.title && (
                 <div className="flex items-center gap-3">
                   <span className="w-1.5 h-6 rounded-full bg-[var(--t)] shrink-0" />
-                  <h2 className="font-display text-lg font-bold text-ink dark:text-gray-100">{formPage.title}</h2>
+                  <h2 className="font-display text-lg font-bold text-ink dark:text-gray-100"><RichText html={formPage.title} className="rich-text" /></h2>
                   <span className="ml-auto text-xs font-semibold text-gray-400">{currentIdx + 1}/{formPages.length}</span>
                 </div>
               )}

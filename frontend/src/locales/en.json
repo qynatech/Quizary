@@ -517,7 +517,7 @@
     "emptySection": "No questions yet in this section.",
     "sectionPlaceholder": "Section name, e.g. Section A",
     "confirmDeleteSectionTitle": "Delete Section?",
-    "confirmDeleteSectionMessage": "Section “{{title}}” will be deleted. Questions inside will not be deleted.",
+    "confirmDeleteSectionMessage": "Section “{{title}}” will be deleted. Questions inside will be moved to the nearest section.",
     "confirmDeleteQuestionsTitle": "Delete {{count}} question(s)?",
     "confirmDeleteQuestionsMessage": "Selected questions will be permanently deleted.",
     "confirmDeleteQuestionTitle": "Delete Question?",

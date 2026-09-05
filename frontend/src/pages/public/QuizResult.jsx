@@ -4,13 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X, Minus, Eye, EyeOff, ArrowRight, ClipboardList, Trophy, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, Badge, FallbackPage, DotCorner, AuroraBg, RichText } from '../../components/ui'
-import { sanitizeHtml } from '../../lib/sanitize'
+import { sanitizeHtml, stripTags } from '../../lib/sanitize'
 import { isAudioUrl } from '../../lib/media'
 import { useTheme } from '../../hooks/useTheme'
 import { themePalette } from '../../lib/theme'
 import api from '../../api/client'
 import { sessionTokenHeaders } from '../../lib/sessionToken'
-import { stripTags } from '../../lib/sanitize'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -111,7 +110,8 @@ export default function QuizResult() {
   // Pesan terima kasih (atau fallback nama form) — dipakai untuk form & quiz.
   const rawThanks = publicForm?.thank_you_message || ''
   const hasThanks = rawThanks.replace(/<[^>]*>/g, '').trim().length > 0
-  const thankYou = hasThanks ? rawThanks : t('quizResult.submittedFallback', { title: stripTags(publicForm?.title) || formTitle })
+  const plainFormTitle = stripTags(publicForm?.title || formTitle)
+  const thankYou = hasThanks ? rawThanks : t('quizResult.submittedFallback', { title: plainFormTitle })
 
   if (!isQuiz) {
     return (
@@ -164,8 +164,8 @@ export default function QuizResult() {
                 <RichText html={thankYou} className="rich-text" />
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
-                {formTitle ? (
-                  <>{t('quizResult.recordedWithTitle', { title: formTitle })}</>
+                {plainFormTitle ? (
+                  <>{t('quizResult.recordedWithTitle', { title: plainFormTitle })}</>
                 ) : (
                   t('quizResult.recorded')
                 )}
@@ -244,8 +244,8 @@ export default function QuizResult() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          {formTitle && (
-            <p className="eyebrow justify-center" style={{ color: palette.base }}><RichText html={formTitle} className="rich-text" /></p>
+          {(publicForm?.title || formTitle) && (
+            <p className="eyebrow justify-center" style={{ color: palette.base }}><RichText html={publicForm?.title || formTitle} className="rich-text" /></p>
           )}
 
           <h1 className="font-display text-2xl md:text-[26px] font-bold text-ink dark:text-gray-100 mt-3 leading-snug">
