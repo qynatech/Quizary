@@ -184,3 +184,12 @@ class FormListResponse(BaseModel):
 
 class BatchPointsUpdate(BaseModel):
     points: int = Field(ge=0, le=999)
+
+
+class FormBulkDeleteRequest(BaseModel):
+    form_ids: list[Annotated[int, Field(ge=1)]] = Field(min_length=1, max_length=100)
+
+
+class FormBulkCategoryRequest(BaseModel):
+    form_ids: list[Annotated[int, Field(ge=1)]] = Field(min_length=1, max_length=100)
+    category_id: Optional[int] = Field(None, ge=1)

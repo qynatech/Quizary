@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, ClipboardList, Search, Trophy, HelpCircle, FolderOpen, Settings2, MoreVertical, Pencil, FolderInput, Trash2 } from 'lucide-react'
+import { Plus, ClipboardList, Search, Trophy, HelpCircle, FolderOpen, Settings2, MoreVertical, Pencil, FolderInput, Trash2, CheckSquare, Check, X } from 'lucide-react'
 import api from '../../api/client'
 import { useToast } from '../../hooks/useToast'
+import { useHoldSelect } from '../../hooks/useHoldSelect'
 import { stripTags } from '../../lib/sanitize'
 import { Button, Input, Card, PageHeader, EmptyState, CardSkeleton, SpotlightCard, RichText, CategoryManager, ConfirmModal } from '../../components/ui'
 
@@ -54,8 +55,8 @@ function FormTypeCluster({ form }) {
   )
 }
 
-// Card visual with overlay category + menu button
-function FormVisual({ form, onMenu, menuOpen }) {
+// Card visual with overlay category + menu button (menu mati saat mode seleksi)
+function FormVisual({ form, onMenu, menuOpen, selectionMode, badgeOffset }) {
   const { t } = useTranslation()
   const visual = form.banner_path ? (
     <img
@@ -82,9 +83,9 @@ function FormVisual({ form, onMenu, menuOpen }) {
       {/* subtle top gradient for legibility */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-transparent pointer-events-none" />
 
-      {/* category overlay - kiri atas, only if ada kategori */}
+      {/* category overlay - kiri atas, geser kanan saat checkbox seleksi tampil */}
       {form.category && (
-        <div className="absolute top-2.5 left-2.5 z-20">
+        <div className={`absolute top-2.5 z-20 transition-all duration-150 ${badgeOffset ? 'left-12' : 'left-2.5'}`}>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-xl bg-white/90 dark:bg-ink-900/80 border border-white/60 dark:border-gray-700/60 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
             <span className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: form.category.color || '#8B7CF6' }} />
             <span className="text-ink dark:text-gray-100 max-w-[110px] truncate">{form.category.name}</span>
@@ -92,39 +93,135 @@ function FormVisual({ form, onMenu, menuOpen }) {
         </div>
       )}
 
-      {/* titik tiga - kanan atas */}
-      <div className="absolute top-2.5 right-2.5 z-20">
-        <button
-          onClick={onMenu}
-          aria-label={t('forms.quickActions')}
-          className={`w-8 h-8 rounded-full backdrop-blur-xl border shadow-sm flex items-center justify-center transition-all ${menuOpen ? 'bg-ink text-white border-ink dark:bg-white dark:text-ink' : 'bg-white/90 dark:bg-ink-900/80 border-white/60 dark:border-gray-700/60 text-gray-600 dark:text-gray-300 hover:bg-white hover:scale-105'}`}
-        >
-          <MoreVertical className="w-4 h-4" />
-        </button>
-      </div>
+      {/* titik tiga - kanan atas, disembunyikan saat mode seleksi */}
+      {!selectionMode && (
+        <div className="absolute top-2.5 right-2.5 z-20">
+          <button
+            onClick={onMenu}
+            aria-label={t('forms.quickActions')}
+            className={`w-8 h-8 rounded-full backdrop-blur-xl border shadow-sm flex items-center justify-center transition-all ${menuOpen ? 'bg-ink text-white border-ink dark:bg-white dark:text-ink' : 'bg-white/90 dark:bg-ink-900/80 border-white/60 dark:border-gray-700/60 text-gray-600 dark:text-gray-300 hover:bg-white hover:scale-105'}`}
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
-function CategoryMoveModal({ open, onClose, form, categories, onMoved }) {
+// Kartu form yang bisa diseleksi — satu komponen per kartu agar hook
+// hold-select aman Rules of Hooks. Hold (mobile) masuk mode seleksi + haptic;
+// saat mode aktif tap = toggle, saat nonaktif tap = buka detail.
+function FormCardItem({ form, index, selected, selectedCount, selectionMode, onToggle, onOpen, menuOpen, onMenu, onEdit, onMove, onDelete }) {
+  const { t } = useTranslation()
+  const holdProps = useHoldSelect({ selectedCount, onToggle: () => onToggle(form.id), onTap: () => onOpen(form) })
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04, duration: 0.35, ease: [0.25,0.1,0.25,1] }}
+      className="h-full select-none"
+      onPointerDown={holdProps.onPointerDown}
+      onPointerMove={holdProps.onPointerMove}
+      onPointerUp={holdProps.onPointerUp}
+      onPointerLeave={holdProps.onPointerLeave}
+      onPointerCancel={holdProps.onPointerCancel}
+      onContextMenu={holdProps.onContextMenu}
+    >
+      <SpotlightCard className="h-full rounded-2xl transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] will-change-transform hover:-translate-y-1 hover:shadow-[0_10px_30px_-20px_var(--tb)]" intensity={0.08} style={themeVars(form.theme_color)}>
+        <Card
+          onClick={(e) => { e.stopPropagation(); holdProps.onClick() }}
+          className={`cursor-pointer h-full flex flex-col relative group border-2 border-[var(--tbb)] dark:border-[var(--tbbd)] hover:border-[var(--tb)] transition-colors duration-300 ${selected ? '!border-primary ring-2 ring-primary/30 bg-primary-50/40 dark:bg-primary-900/15' : ''}`}
+          style={themeVars(form.theme_color)}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none transition-opacity duration-300 opacity-40 group-hover:opacity-70"
+            style={{ background: 'radial-gradient(520px 280px at 85% 100%, var(--ts) 0%, transparent 62%)' }}
+          />
+
+          {/* checkbox seleksi — di dalam kartu (kiri atas visual) agar tidak
+              terpotong overflow parent; badge kategori digeser saat ia tampil */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggle(form.id) }}
+            aria-label={t('forms.selectForm', { title: stripTags(form.title) })}
+            aria-pressed={selected}
+            className={`absolute top-3 left-3 z-30 w-7 h-7 rounded-full border-2 shadow-lg flex items-center justify-center transition-all duration-150 active:scale-90 ${selected ? 'bg-primary border-primary text-white' : 'bg-white/95 dark:bg-ink-800/95 border-gray-300 dark:border-gray-600 text-transparent hover:border-primary'} ${selectionMode || selected ? 'opacity-100 scale-100' : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100'}`}
+          >
+            <Check className="w-4 h-4" strokeWidth={3} />
+          </button>
+
+          <FormVisual form={form} menuOpen={menuOpen} selectionMode={selectionMode} badgeOffset={selectionMode || selected} onMenu={(e)=>{ e.stopPropagation(); onMenu() }} />
+
+          {/* menu dropdown — mati total saat mode seleksi */}
+          <AnimatePresence>
+            {menuOpen && !selectionMode && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={(e)=>{ e.stopPropagation(); onMenu() }} />
+                <motion.div
+                  initial={{ opacity: 0, y: 6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                  transition={{ duration: 0.16 }}
+                  className="absolute top-[56px] right-3 z-20 w-56 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-ink-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+                  onClick={(e)=>e.stopPropagation()}
+                >
+                  <div className="p-1.5">
+                    <button onClick={(e)=>{ e.stopPropagation(); onMenu(); onEdit(form)}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-ink-700 transition-colors">
+                      <Pencil className="w-4 h-4 text-gray-400" /> {t('forms.menuEdit')}
+                    </button>
+                    <button onClick={(e)=>{ e.stopPropagation(); onMenu(); onMove(form)}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-ink-700 transition-colors">
+                      <FolderInput className="w-4 h-4 text-primary" /> {t('forms.menuMoveCategory')}
+                    </button>
+                    <div className="my-1 h-px bg-gray-100 dark:bg-gray-700" />
+                    <button onClick={(e)=>{ e.stopPropagation(); onMenu(); onDelete(form)}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-incorrect hover:bg-incorrect-soft transition-colors">
+                      <Trash2 className="w-4 h-4" /> {t('forms.menuDelete')}
+                    </button>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
+          <h3 className="relative text-[17px] font-display font-semibold text-ink dark:text-gray-100 leading-tight line-clamp-2"><RichText html={form.title} /></h3>
+          <div className="relative h-7 mt-3" />
+          <FormTypeCluster form={form} />
+        </Card>
+      </SpotlightCard>
+    </motion.div>
+  )
+}
+
+function CategoryMoveModal({ open, onClose, form, forms: formsProp, categories, onMoved }) {
   const { t } = useTranslation()
   const toast = useToast()
   const [saving, setSaving] = useState(false)
   const [selected, setSelected] = useState(null)
 
-  useEffect(() => {
-    if (open && form) setSelected(form.category_id || null)
-  }, [open, form])
+  // Mode bulk bila forms[] diisi; satuan bila form diisi (kompatibel pemanggil lama)
+  const targets = formsProp?.length ? formsProp : (form ? [form] : [])
+  const isBulk = (formsProp?.length || 0) > 0
 
-  if (!open || !form) return null
+  useEffect(() => {
+    if (!open || targets.length === 0) return
+    // Bulk: preselect bila semua target sekategori, bila beda → null (tanpa kategori)
+    const first = targets[0].category_id || null
+    setSelected(targets.every((f) => (f.category_id || null) === first) ? first : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  if (!open || targets.length === 0) return null
 
   const handleSave = async () => {
-    if (selected === (form.category_id || null)) { onClose(); return }
     setSaving(true)
     try {
-      const res = await api.put(`/forms/${form.id}`, { category_id: selected })
-      toast.success(selected ? t('forms.movedTo', { category: categories.find(c=>c.id===selected)?.name }) : t('forms.removedFromCategory'))
-      onMoved?.(res.data)
+      if (isBulk) {
+        const res = await api.patch('/forms/category', { form_ids: targets.map((f) => f.id), category_id: selected })
+        toast.success(res.data.message || t('forms.bulkMoved', { count: res.data.moved ?? targets.length }))
+        onMoved?.(res.data)
+      } else {
+        if (selected === (targets[0].category_id || null)) { onClose(); return }
+        const res = await api.put(`/forms/${targets[0].id}`, { category_id: selected })
+        toast.success(selected ? t('forms.movedTo', { category: categories.find(c=>c.id===selected)?.name }) : t('forms.removedFromCategory'))
+        onMoved?.(res.data)
+      }
       onClose()
     } catch (err) {
       toast.error(err.response?.data?.message || t('forms.moveFailed'))
@@ -138,9 +235,9 @@ function CategoryMoveModal({ open, onClose, form, categories, onMoved }) {
           <motion.div initial={{ scale: 0.96, y: 8, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.96, y: 8, opacity: 0 }} className="bg-white dark:bg-ink-900 rounded-2xl w-full max-w-md shadow-lift overflow-hidden" onClick={(e)=>e.stopPropagation()}>
             <div className="px-6 pt-5 pb-4">
               <h3 className="font-display text-lg font-bold text-ink dark:text-gray-100 flex items-center gap-2">
-                <FolderInput className="w-5 h-5 text-primary" /> {t('forms.changeCategoryTitle')}
+                <FolderInput className="w-5 h-5 text-primary" /> {isBulk ? t('forms.bulkMoveTitle', { count: targets.length }) : t('forms.changeCategoryTitle')}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">“{stripTags(form.title)}”</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">{isBulk ? t('forms.bulkMoveSubtitle', { count: targets.length }) : `“${stripTags(targets[0].title)}”`}</p>
             </div>
             <div className="px-3 pb-3 max-h-[320px] overflow-y-auto space-y-1">
               <button
@@ -198,6 +295,11 @@ export default function FormList() {
   const [moveTarget, setMoveTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  // Bulk select — scope halaman ini saja (direset tiap filter berubah)
+  const [selected, setSelected] = useState(() => new Set())
+  const [showBulkDelete, setShowBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [showBulkMove, setShowBulkMove] = useState(false)
 
   const fetchCategories = () => {
     api.get('/categories').then((res) => setCategories(res.data)).catch(() => {})
@@ -248,6 +350,46 @@ export default function FormList() {
     const q = search.toLowerCase()
     return forms.filter((f) => stripTags(f.title).toLowerCase().includes(q))
   }, [forms, search])
+
+  // Seleksi bulk — reset tiap konteks daftar berubah (scope halaman ini saja)
+  useEffect(() => { setSelected(new Set()); setMenuOpen(null) }, [activeTab, activeCategory, search, meta.page])
+  const selectionMode = selected.size > 0
+  const selectedForms = useMemo(() => filtered.filter((f) => selected.has(f.id)), [filtered, selected])
+  const allSelected = filtered.length > 0 && filtered.every((f) => selected.has(f.id))
+
+  const toggleSelect = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const toggleSelectAll = () => {
+    setSelected(allSelected ? new Set() : new Set(filtered.map((f) => f.id)))
+  }
+  const clearSelection = () => { setSelected(new Set()); setMenuOpen(null) }
+
+  const handleBulkDelete = async () => {
+    if (selectedForms.length === 0) return
+    setBulkDeleting(true)
+    try {
+      const res = await api.delete('/forms', { data: { form_ids: selectedForms.map((f) => f.id) } })
+      toast.success(res.data.message || t('forms.bulkDeleted', { count: res.data.deleted ?? selectedForms.length }))
+      setShowBulkDelete(false)
+      clearSelection()
+      fetchForms()
+      fetchCategories()
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('forms.bulkDeleteFailed'))
+    } finally { setBulkDeleting(false) }
+  }
+
+  const handleBulkMoved = () => {
+    clearSelection()
+    fetchForms()
+    fetchCategories()
+  }
 
   const totalPages = Math.ceil(meta.total / meta.per_page)
 
@@ -335,6 +477,32 @@ export default function FormList() {
         </div>
       </div>
 
+      {/* bulk action bar — sticky ala Results, muncul saat ada yang dipilih */}
+      {selectionMode && (
+        <div className="sticky top-2 z-30 mb-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-white dark:bg-ink-900 px-4 py-3 shadow-lift">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={toggleSelectAll}
+            aria-label={t('forms.selectAll')}
+            title={t('forms.selectAll')}
+            className="accent-primary w-4 h-4 cursor-pointer shrink-0"
+          />
+          <span className="text-sm font-semibold text-ink dark:text-gray-100 shrink-0">{t('forms.selectedCount', { count: selected.size })}</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button variant="ghost" size="sm" onClick={clearSelection} icon={<X className="w-4 h-4" />}>
+              <span className="hidden sm:inline">{t('forms.cancelSelection')}</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowBulkMove(true)} icon={<FolderInput className="w-4 h-4" />}>
+              <span className="hidden sm:inline">{t('forms.menuMoveCategory')}</span>
+            </Button>
+            <Button variant="danger" size="sm" icon={<Trash2 className="w-4 h-4" />} onClick={() => setShowBulkDelete(true)}>
+              <span className="hidden sm:inline">{t('forms.deleteConfirm')}</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       <CategoryManager open={showCatMgr} onClose={() => setShowCatMgr(false)} categories={categories} onChanged={handleCategoryChanged} />
       <CategoryMoveModal open={!!moveTarget} onClose={()=>setMoveTarget(null)} form={moveTarget} categories={categories} onMoved={handleMoved} />
       <ConfirmModal
@@ -346,6 +514,17 @@ export default function FormList() {
         loading={deleting}
         onConfirm={handleDelete}
         onCancel={()=>setDeleteTarget(null)}
+      />
+      <CategoryMoveModal open={showBulkMove} onClose={()=>setShowBulkMove(false)} forms={selectedForms} categories={categories} onMoved={handleBulkMoved} />
+      <ConfirmModal
+        show={showBulkDelete}
+        title={t('forms.bulkDeleteTitle', { count: selectedForms.length })}
+        message={t('forms.bulkDeleteMessage', { count: selectedForms.length })}
+        confirmText={t('forms.deleteConfirm')}
+        variant="danger"
+        loading={bulkDeleting}
+        onConfirm={handleBulkDelete}
+        onCancel={()=>setShowBulkDelete(false)}
       />
 
       {loading ? (
@@ -371,60 +550,21 @@ export default function FormList() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 py-1 -my-1">
             {filtered.map((form, i) => (
-              <motion.div
+              <FormCardItem
                 key={form.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04, duration: 0.35, ease: [0.25,0.1,0.25,1] }}
-                className="h-full"
-              >
-                <SpotlightCard className="h-full rounded-2xl transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] will-change-transform hover:-translate-y-1 hover:shadow-[0_10px_30px_-20px_var(--tb)]" intensity={0.08} style={themeVars(form.theme_color)}>
-                  <Card
-                    onClick={() => navigate(`/forms/${form.id}`)}
-                    className="cursor-pointer h-full flex flex-col relative group border-2 border-[var(--tbb)] dark:border-[var(--tbbd)] hover:border-[var(--tb)] transition-colors duration-300"
-                    style={themeVars(form.theme_color)}
-                  >
-                    <div
-                      className="absolute inset-0 pointer-events-none transition-opacity duration-300 opacity-40 group-hover:opacity-70"
-                      style={{ background: 'radial-gradient(520px 280px at 85% 100%, var(--ts) 0%, transparent 62%)' }}
-                    />
-
-                    <FormVisual form={form} menuOpen={menuOpen===form.id} onMenu={(e)=>{ e.stopPropagation(); setMenuOpen(menuOpen===form.id ? null : form.id) }} />
-
-                    {/* menu dropdown */}
-                    <AnimatePresence>
-                      {menuOpen===form.id && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={(e)=>{ e.stopPropagation(); setMenuOpen(null) }} />
-                          <motion.div
-                            initial={{ opacity: 0, y: 6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                            transition={{ duration: 0.16 }}
-                            className="absolute top-[56px] right-3 z-20 w-56 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-ink-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-                            onClick={(e)=>e.stopPropagation()}
-                          >
-                            <div className="p-1.5">
-                              <button onClick={(e)=>{ e.stopPropagation(); setMenuOpen(null); navigate(`/forms/${form.id}`)}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-ink-700 transition-colors">
-                                <Pencil className="w-4 h-4 text-gray-400" /> {t('forms.menuEdit')}
-                              </button>
-                              <button onClick={(e)=>{ e.stopPropagation(); setMenuOpen(null); setMoveTarget(form)}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-ink-700 transition-colors">
-                                <FolderInput className="w-4 h-4 text-primary" /> {t('forms.menuMoveCategory')}
-                              </button>
-                              <div className="my-1 h-px bg-gray-100 dark:bg-gray-700" />
-                              <button onClick={(e)=>{ e.stopPropagation(); setMenuOpen(null); setDeleteTarget(form)}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-incorrect hover:bg-incorrect-soft transition-colors">
-                                <Trash2 className="w-4 h-4" /> {t('forms.menuDelete')}
-                              </button>
-                            </div>
-                          </motion.div>
-                        </>
-                      )}
-                    </AnimatePresence>
-
-                    <h3 className="relative text-[17px] font-display font-semibold text-ink dark:text-gray-100 leading-tight line-clamp-2"><RichText html={form.title} /></h3>
-                    <div className="relative h-7 mt-3" />
-                    <FormTypeCluster form={form} />
-                  </Card>
-                </SpotlightCard>
-              </motion.div>
+                form={form}
+                index={i}
+                selected={selected.has(form.id)}
+                selectedCount={selected.size}
+                selectionMode={selectionMode}
+                onToggle={toggleSelect}
+                onOpen={(f) => navigate(`/forms/${f.id}`)}
+                menuOpen={menuOpen===form.id}
+                onMenu={() => setMenuOpen(menuOpen===form.id ? null : form.id)}
+                onEdit={(f) => navigate(`/forms/${f.id}`)}
+                onMove={(f) => setMoveTarget(f)}
+                onDelete={(f) => setDeleteTarget(f)}
+              />
             ))}
           </div>
           {totalPages > 1 && (

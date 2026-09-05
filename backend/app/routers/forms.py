@@ -18,6 +18,8 @@ from app.services.points import distribute_quiz_points
 from app.utils import file_url, fmt_dt, now_wib, _delete_file
 from app.schemas.form import (
     BatchPointsUpdate,
+    FormBulkCategoryRequest,
+    FormBulkDeleteRequest,
     FormCreate,
     FormListItem,
     FormListResponse,
@@ -249,6 +251,67 @@ def create_form(
     return _form_dict(form, request, db)
 
 
+# ── DELETE /forms (bulk) ──────────────────────────────────────────────────────
+
+def _delete_form_files(form: Form, db: Session) -> None:
+    """Hapus file di disk milik 1 form (banner, gambar soal/opsi, file jawaban).
+    Baris DB hilang via cascade / db.delete oleh pemanggil."""
+    _delete_file(form.banner_path)
+    questions = db.query(Question).filter(Question.form_id == form.id, Question.is_deleted.is_(False)).all()
+    for q in questions:
+        for img in db.query(Image).filter(Image.question_id == q.id).all():
+            _delete_file(img.path)
+        for opt in db.query(QuestionOption).filter(QuestionOption.question_id == q.id).all():
+            for img in db.query(Image).filter(Image.option_id == opt.id).all():
+                _delete_file(img.path)
+    file_answers = (
+        db.query(Answer.answer_file)
+        .join(Submission, Answer.submission_id == Submission.id)
+        .filter(Submission.form_id == form.id, Answer.answer_file.isnot(None))
+        .all()
+    )
+    for (path,) in file_answers:
+        _delete_file(path)
+
+
+@router.delete("/forms")
+def bulk_delete_forms(
+    body: FormBulkDeleteRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Bulk-delete formulir milik sendiri. Id asing / tidak ada diabaikan —
+    respons berisi jumlah yang benar-benar terhapus."""
+    forms = db.query(Form).filter(Form.user_id == user.id, Form.id.in_(body.form_ids)).all()
+    for form in forms:
+        _delete_form_files(form, db)
+        db.delete(form)
+    db.commit()
+    return {"deleted": len(forms), "message": f"{len(forms)} formulir berhasil dihapus"}
+
+
+# ── PATCH /forms/category (bulk pindah kategori) ──────────────────────────────
+
+@router.patch("/forms/category")
+def bulk_move_category(
+    body: FormBulkCategoryRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pindahkan banyak formulir ke 1 kategori (null = keluarkan).
+    Id asing / tidak ada diabaikan."""
+    cat = _verify_category(db, body.category_id, user.id)
+    forms = db.query(Form).filter(Form.user_id == user.id, Form.id.in_(body.form_ids)).all()
+    now = now_wib()
+    for form in forms:
+        form.category_id = body.category_id
+        form.updated_at = now
+    db.commit()
+    if body.category_id is None:
+        return {"moved": len(forms), "message": f"{len(forms)} formulir dikeluarkan dari kategori"}
+    return {"moved": len(forms), "message": f"{len(forms)} formulir dipindahkan ke {cat.name}"}
+
+
 # ── GET /forms/{form_id} ──────────────────────────────────────────────────────
 
 @router.get("/forms/{form_id}")
@@ -358,25 +421,7 @@ def _clear_correct_after_quiz_conversion(form_id: int, db: Session) -> None:
 
 @router.delete("/forms/{form_id}")
 def delete_form(form: Form = Depends(verify_form_owner), db: Session = Depends(get_db)):
-    _delete_file(form.banner_path)
-    questions = db.query(Question).filter(Question.form_id == form.id, Question.is_deleted.is_(False)).all()
-    for q in questions:
-        for img in db.query(Image).filter(Image.question_id == q.id).all():
-            _delete_file(img.path)
-        for opt in db.query(QuestionOption).filter(QuestionOption.question_id == q.id).all():
-            for img in db.query(Image).filter(Image.option_id == opt.id).all():
-                _delete_file(img.path)
-    # File jawaban upload responden (uploads/answer_files/) ikut dihapus —
-    # baris DB-nya hilang via cascade, file di disk tidak, jadi dibersihkan
-    # manual supaya tidak menumpuk dan memberatkan server.
-    file_answers = (
-        db.query(Answer.answer_file)
-        .join(Submission, Answer.submission_id == Submission.id)
-        .filter(Submission.form_id == form.id, Answer.answer_file.isnot(None))
-        .all()
-    )
-    for (path,) in file_answers:
-        _delete_file(path)
+    _delete_form_files(form, db)
     db.delete(form)
     db.commit()
     return {"message": "Form and all related data have been deleted"}

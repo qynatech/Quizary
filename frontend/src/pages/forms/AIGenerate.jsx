@@ -254,7 +254,6 @@ export default function AIGenerate() {
                 value={prompt}
                 onChange={(e) => { setPrompt(e.target.value); setError('') }}
                 placeholder={t('aiGenerate.promptPlaceholder')}
-                helper={t('aiGenerate.promptHint')}
                 rows={4}
               />
               <div>

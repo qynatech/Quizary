@@ -472,7 +472,7 @@ export default function Results() {
               initial={{ scale: 0.96, opacity: 0, y: 8 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.96, opacity: 0, y: 8 }}
-              className="bg-white dark:bg-ink-900 rounded-2xl w-full max-w-2xl max-h-[88dvh] flex flex-col shadow-lift"
+              className="bg-white dark:bg-ink-900 border dark:border-ink-800 rounded-2xl w-full max-w-2xl max-h-[88dvh] flex flex-col shadow-lift"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">

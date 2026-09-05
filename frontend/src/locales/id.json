@@ -149,6 +149,18 @@
     "deleteConfirm": "Hapus",
     "deleted": "Formulir dihapus",
     "deleteFailed": "Gagal menghapus formulir",
+    "select": "Pilih",
+    "selectAll": "Pilih semua di halaman ini",
+    "selectForm": "Pilih {{title}}",
+    "selectedCount": "{{count}} dipilih",
+    "cancelSelection": "Batal",
+    "bulkDeleteTitle": "Hapus {{count}} formulir?",
+    "bulkDeleteMessage": "{{count}} formulir beserta semua soal/jawaban akan hilang permanen.",
+    "bulkDeleted": "{{count}} formulir dihapus",
+    "bulkDeleteFailed": "Gagal menghapus formulir terpilih",
+    "bulkMoveTitle": "Pindah {{count}} formulir",
+    "bulkMoveSubtitle": "{{count}} formulir dipilih",
+    "bulkMoved": "{{count}} formulir dipindahkan",
     "aiFab": "Buat formulir dengan AI"
   },
   "formCreate": {
