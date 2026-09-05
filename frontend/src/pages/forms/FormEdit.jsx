@@ -775,7 +775,7 @@ export default function FormEdit() {
               initial={{ scale: 0.96, opacity: 0, y: 8 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.96, opacity: 0, y: 8 }}
-              className="bg-white dark:bg-ink-900 rounded-2xl p-6 w-full max-w-sm shadow-lift relative"
+              className="bg-white dark:bg-ink-900 border dark:border-ink-700 rounded-2xl p-6 w-full max-w-sm shadow-lift relative"
               onClick={(e) => e.stopPropagation()}
             >
               <button

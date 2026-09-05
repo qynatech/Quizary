@@ -583,6 +583,8 @@
     "uploading": "Mengunggah...",
     "viewFile": "Lihat",
     "removeFile": "Hapus",
+    "removingFile": "Menghapus...",
+    "fileRemoveFailed": "File belum terhapus. Coba lagi.",
     "zoomIn": "Perbesar pertanyaan",
     "zoomTitle": "Perbesar Pertanyaan",
     "optional": "Opsional",

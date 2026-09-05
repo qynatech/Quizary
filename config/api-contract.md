@@ -435,6 +435,7 @@ Auth: Bearer Token (pemilik form terkait)
 - **`allow_other`** (`boolean`, default `false`, hanya `multiple_choice`/`checkbox`): opsi "Lainnya" (ketik sendiri). Hanya tampil ke responden bila `true` (payload publik `questions[].allow_other`). Autosave boleh mengirim `option_ids` + `answer_text` bersamaan **hanya** bila flag on (selain itu teks dibuang / 422 bila diisi; maks 500 char). Di `multiple_choice` (satu jawaban) Lainnya eksklusif: memilih/mengetik Lainnya melepas opsi biasa dan sebaliknya. Jawaban ber-teks-Lainnya → `is_correct=false`, poin 0 (teks bebas tak bisa diverifikasi otomatis), tapi tetap dihitung menjawab untuk soal wajib. Tampil di hasil sebagai "Lainnya: {teks}".
 - Setiap soal bisa punya `section_id` (nullable) — kelompok soal per halaman. Section dikelola lewat `GET/POST /forms/{id}/sections`, `PATCH /sections/{id}` (rename), `PATCH /sections/reorder` (urutkan), dan `DELETE /sections/{id}`. Saat section dihapus, question aktif di dalamnya dipindahkan ke section terdekat yang tersisa (section sebelumnya diprioritaskan, lalu section berikutnya); section terakhir tidak boleh dihapus.
 - Jawaban file: `POST /submissions/{id}/answers/{question_id}/file` (multipart, field `file`). Tipe diizinkan: pdf, doc, docx, xls, xlsx, ppt, pptx, txt, csv, png, jpg, jpeg, zip. Response `{ "answer_file": url, "filename": ... }`.
+- Hapus jawaban file: `DELETE /submissions/{id}/answers/{question_id}/file`. Hanya saat submission `in_progress`; file di storage dan kolom `answer_file` dikosongkan. Response `{ "message": ..., "question_id": ... }`.
 
 **Distribusi poin quiz (pool 100):**
 - Tambah/import/hapus soal, atau toggle `is_scored` on → seluruh soal scored dibagi merata (sisa tidak habis dibagi jatuh ke soal terurut awal).
@@ -1076,6 +1077,7 @@ Auth: Bearer Token
 | DELETE | `/api/sections/{id}` | Bearer | Hapus section dan pindahkan soalnya ke section terdekat |
 | PATCH | `/api/sections/reorder` | Bearer | Urutkan ulang section |
 | POST | `/api/submissions/{id}/answers/{question_id}/file` | Bearer/anon | Upload jawaban file |
+| DELETE | `/api/submissions/{id}/answers/{question_id}/file` | Bearer/anon | Hapus jawaban file saat submission masih berjalan |
 | GET | `/api/forms/{id}/results` | Bearer | Hasil submission (pemilik) |
 | GET | `/api/forms/{id}/analytics` | Bearer | Statistik (pemilik) |
 | GET | `/api/forms/{id}/export/excel` | Bearer | Export Excel (pemilik) |

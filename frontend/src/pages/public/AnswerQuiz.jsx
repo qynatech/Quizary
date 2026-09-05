@@ -194,6 +194,7 @@ export default function AnswerQuiz() {
   const [answers, setAnswers] = useState({})
   const [fileAnswers, setFileAnswers] = useState({})   // { [qId]: { url, filename } }
   const [uploading, setUploading] = useState({})       // { [qId]: true } saat upload berjalan
+  const [removingFile, setRemovingFile] = useState({}) // { [qId]: true } saat hapus berjalan
   const [reviewed, setReviewed] = useState({})
   const [showMap, setShowMap] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -839,9 +840,18 @@ export default function AnswerQuiz() {
     }
   }
 
-  const removeFileAnswer = (qId) => {
-    setFileAnswers((f) => { const n = { ...f }; delete n[qId]; return n })
-    setAnswers((a) => { const n = { ...a }; delete n[qId]; return n })
+  const removeFileAnswer = async (qId) => {
+    if (!fileAnswers[qId] || removingFile[qId]) return
+    setRemovingFile((r) => ({ ...r, [qId]: true }))
+    try {
+      await api.delete(`/submissions/${submissionId}/answers/${qId}/file`, { headers: sessionTokenHeaders(submissionId) })
+      setFileAnswers((f) => { const n = { ...f }; delete n[qId]; return n })
+      setAnswers((a) => { const n = { ...a }; delete n[qId]; return n })
+    } catch (err) {
+      setSubmitError(err.response?.data?.detail || err.response?.data?.message || t('answerQuiz.fileRemoveFailed'))
+    } finally {
+      setRemovingFile((r) => { const n = { ...r }; delete n[qId]; return n })
+    }
   }
 
   const toggleReview = (qId) => {
@@ -1524,6 +1534,7 @@ export default function AnswerQuiz() {
                     <FileAnswer
                       value={fileAnswers[current.id]}
                       uploading={!!uploading[current.id]}
+                      removing={!!removingFile[current.id]}
                       onFile={(file) => handleFileUpload(current.id, file)}
                       onRemove={() => removeFileAnswer(current.id)}
                       error={validationErrors[current.id]}
@@ -1900,6 +1911,7 @@ export default function AnswerQuiz() {
                     <FileAnswer
                       value={fileAnswers[q.id]}
                       uploading={!!uploading[q.id]}
+                      removing={!!removingFile[q.id]}
                       onFile={(file) => handleFileUpload(q.id, file)}
                       onRemove={() => removeFileAnswer(q.id)}
                       error={validationErrors[q.id]}
@@ -2067,7 +2079,7 @@ function QuestionMapDrawer({ show, onClose, total, current, answered, reviewed, 
   )
 }
 
-function FileAnswer({ value, uploading, onFile, onRemove, error }) {
+function FileAnswer({ value, uploading, removing, onFile, onRemove, error }) {
   const { t } = useTranslation()
   const inputRef = useRef(null)
   return (
@@ -2079,7 +2091,9 @@ function FileAnswer({ value, uploading, onFile, onRemove, error }) {
           </span>
           <span className="flex-1 min-w-0 text-sm font-medium text-ink dark:text-gray-100 truncate">{value.filename}</span>
           <a href={value.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-[var(--t)] hover:underline shrink-0">{t('answerQuiz.viewFile')}</a>
-          <button onClick={onRemove} className="text-xs font-medium text-gray-400 hover:text-incorrect shrink-0">{t('answerQuiz.removeFile')}</button>
+          <button type="button" onClick={onRemove} disabled={removing} className="min-h-11 min-w-11 px-2 text-xs font-medium text-gray-400 hover:text-incorrect disabled:opacity-50 shrink-0">
+            {removing ? t('answerQuiz.removingFile') : t('answerQuiz.removeFile')}
+          </button>
         </div>
       ) : (
         <button

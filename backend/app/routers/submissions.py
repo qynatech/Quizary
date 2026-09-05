@@ -133,7 +133,7 @@ def upload_answer_file(
     if sub.status == SubmissionStatus.locked:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ujian dikunci — menunggu keputusan pengawas")
     if sub.status != SubmissionStatus.in_progress:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Submission already completed")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Pengerjaan sudah selesai")
 
     question = _get_question_for_submission(question_id, sub, db)
     if question.type != QuestionType.file_upload:
@@ -171,6 +171,41 @@ def upload_answer_file(
     answer.updated_at = now_wib()
     db.commit()
     return {"answer_file": file_url(request, answer.answer_file), "filename": file.filename or fname}
+
+
+@router.delete("/submissions/{submission_id}/answers/{question_id}/file")
+def delete_answer_file(
+    submission_id: int,
+    question_id: int,
+    request: Request = None,
+    x_submission_token: str | None = Header(None, alias="X-Submission-Token"),
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+):
+    """Remove the respondent's uploaded file from both storage and Answer."""
+    sub = _get_sub_or_404(submission_id, db)
+    _verify_submission_access(sub, request, user, db, x_submission_token)
+    if sub.status == SubmissionStatus.locked:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ujian dikunci — menunggu keputusan pengawas")
+    if sub.status != SubmissionStatus.in_progress:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Pengerjaan sudah selesai")
+
+    question = _get_question_for_submission(question_id, sub, db)
+    if question.type != QuestionType.file_upload:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Soal ini bukan tipe file upload")
+
+    answer = db.query(Answer).filter(
+        Answer.submission_id == sub.id,
+        Answer.question_id == question_id,
+    ).first()
+    if not answer or not answer.answer_file:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File jawaban tidak ditemukan")
+
+    _delete_file(answer.answer_file)
+    answer.answer_file = None
+    answer.updated_at = _now()
+    db.commit()
+    return {"message": "File jawaban dihapus", "question_id": question_id}
 
 
 def _missing_required(sub: Submission, form: Form, db: Session) -> list[str]:

@@ -440,7 +440,7 @@ export default function AIGenerate() {
             {error && <p className="field-error">{error}</p>}
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button onClick={handleAccept} loading={accepting} className="flex-1" size="lg" icon={<Check className="w-4 h-4" />}>
+              <Button onClick={handleAccept} loading={accepting} className="w-full flex-1 min-h-[56px] sm:w-auto sm:min-h-[52px]" size="lg" icon={<Check className="w-4 h-4" />}>
                 {accepting ? t('aiGenerate.accepting') : t('aiGenerate.accept')}
               </Button>
               <Button

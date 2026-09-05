@@ -1283,6 +1283,17 @@ export default function QuestionBuilder() {
   const handleSaveQuestion = async (data) => {
     setSaveLoading(true)
     setFieldErrors({})
+    // Keep the client-side option list alongside the payload. New options can
+    // have a pending media file before they receive a database ID; after the
+    // question is saved, the response contains the generated option ID needed
+    // by the media endpoint.
+    const optionEntries = OPTION_TYPES.includes(data.type)
+      ? data.options.filter((o) => {
+          const hasText = (o.option_text || '').replace(/<[^>]*>/g, '').trim()
+          const hasImage = !!(o.image?.path || o._pendingFile)
+          return hasText || hasImage
+        })
+      : []
     const payload = {
       question_text: data.question_text,
       type: data.type,
@@ -1298,20 +1309,41 @@ export default function QuestionBuilder() {
         ? !!data.allow_other
         : undefined,
       options: OPTION_TYPES.includes(data.type)
-        ? data.options.filter((o) => {
-            const hasText = (o.option_text || '').replace(/<[^>]*>/g, '').trim()
-            const hasImage = !!(o.image?.path || o._pendingFile)
-            return hasText || hasImage
-          }).map((o) => ({
+        ? optionEntries.map((o) => ({
             ...(o.id ? { id: o.id } : {}),
             option_text: (o.option_text || '').replace(/<[^>]*>/g, '').trim() ? o.option_text : (o.image?.path || o._pendingFile ? '<p><br></p>' : o.option_text),
             is_correct: data.type === 'dropdown' ? false : !!o.is_correct,
           }))
         : [],
     }
+    const uploadPendingOptionImages = async (savedQuestion) => {
+      let failed = 0
+      const existingOptionIds = new Set(optionEntries.filter((o) => o.id).map((o) => o.id))
+      const pendingEntries = optionEntries.filter((o) => o._pendingFile)
+      // PUT /questions appends options without an id after existing options,
+      // so match pending files against newly-created response options rather
+      // than relying on the visual option index (a new option may be inserted
+      // in the middle of the list).
+      const newSavedOptions = (savedQuestion?.options || []).filter((o) => !existingOptionIds.has(o.id))
+      for (let i = 0; i < pendingEntries.length; i++) {
+        const opt = pendingEntries[i]
+        const savedOpt = newSavedOptions[i]
+        if (!savedOpt?.id) continue
+        try {
+          const fd = new FormData()
+          fd.append('file', opt._pendingFile)
+          await api.post(`/questions/${savedQuestion.id}/option/${savedOpt.id}/image`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+        } catch (e) {
+          failed += 1
+          toast.error(e.response?.data?.message || e.response?.data?.detail || 'Gagal upload media opsi')
+        }
+      }
+      return failed
+    }
     try {
       if (editing) {
-        await api.put(`/questions/${editing.id}`, payload)
+        const res = await api.put(`/questions/${editing.id}`, payload)
+        await uploadPendingOptionImages(res.data)
         toast.success(t('questionBuilder.updated'))
       } else {
         const res = await api.post(`/forms/${formId}/questions`, payload)
@@ -1324,20 +1356,7 @@ export default function QuestionBuilder() {
             await api.post(`/questions/${newQ.id}/image`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
           } catch (e) { toast.error(e.response?.data?.message || e.response?.data?.detail || 'Gagal upload media pertanyaan') }
         }
-        const sentOpts = data.options.filter((o) => o.option_text.trim())
-        for (let i = 0; i < sentOpts.length; i++) {
-          const opt = sentOpts[i]
-          if (opt._pendingFile) {
-            const optId = newQ.options?.[i]?.id
-            if (optId) {
-              try {
-                const fd = new FormData()
-                fd.append('file', opt._pendingFile)
-                await api.post(`/questions/${newQ.id}/option/${optId}/image`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-              } catch (e) { toast.error(e.response?.data?.message || e.response?.data?.detail || 'Gagal upload media opsi') }
-            }
-          }
-        }
+        await uploadPendingOptionImages(newQ)
         toast.success(t('questionBuilder.added'))
       }
       load()

@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user, verify_form_owner
 from app.models.answer import Answer
-from app.models.answer_option import AnswerOption
 from app.models.form import Form
 from app.models.image import Image
 from app.models.question import Question, QuestionType, Section
@@ -442,15 +441,10 @@ def update_question(
     # Fix #4 — if switching to a text type, options must be explicitly cleared in DB
     if "type" in update_data:
         new_type = QuestionType(update_data.pop("type"))
-        # Switching FROM option type TO text type → delete all existing options,
-        # but never options already chosen by respondents (would corrupt answers).
+        # Switching FROM option type TO text type → delete all existing options.
+        # AnswerOption has ON DELETE CASCADE, so historical answer rows remain
+        # valid while their obsolete option links are removed with the option.
         if new_type.value in _TEXT_TYPES and question.type.value in _OPTION_TYPES:
-            for opt in list(question.options):
-                if db.query(AnswerOption).filter(AnswerOption.option_id == opt.id).count() > 0:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail=f"Opsi \"{opt.option_text}\" tidak dapat dihapus karena sudah dipilih peserta",
-                    )
             for opt in list(question.options):
                 db.delete(opt)
             db.flush()
@@ -529,11 +523,6 @@ def update_question(
 
         for opt in list(question.options):
             if opt.id not in seen_ids:
-                if db.query(AnswerOption).filter(AnswerOption.option_id == opt.id).count() > 0:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail=f"Opsi \"{opt.option_text}\" tidak dapat dihapus karena sudah dipilih peserta",
-                    )
                 db.delete(opt)
 
         db.flush()
