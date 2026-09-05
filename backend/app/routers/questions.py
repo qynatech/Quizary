@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi import UploadFile, File
 import os
+import shutil
 import uuid
 from sqlalchemy.orm import Session
 
@@ -500,6 +501,87 @@ def delete_question(
     question.is_deleted = True
     db.commit()
     return {"message": "Question deleted"}
+
+
+# ── POST /questions/{question_id}/duplicate ───────────────────────────────────
+# Duplikasi penuh 1 soal tepat di bawah soal asal: konten rich-text, settings
+# (type/points/is_scored/is_required/section/group/password_keyword), opsi,
+# dan file gambar (disalin di disk ke nama baru — bukan shared path, supaya
+# hapus salah satu tidak merenggut yang lain). File yatim dilewati.
+
+@router.post("/questions/{question_id}/duplicate", status_code=201)
+def duplicate_question(
+    request: Request,
+    question_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    src = _get_question_or_404(question_id, db)
+    _ensure_owner(src, user, db)
+
+    new_order = (src.order_index or 0) + 1
+    db.query(Question).filter(
+        Question.form_id == src.form_id,
+        Question.is_deleted.is_(False),
+        Question.order_index >= new_order,
+    ).update({Question.order_index: Question.order_index + 1}, synchronize_session=False)
+
+    copy = Question(
+        form_id=src.form_id,
+        section_id=src.section_id,
+        type=src.type,
+        question_text=src.question_text,
+        points=src.points,
+        is_scored=src.is_scored,
+        is_required=src.is_required,
+        group_id=src.group_id,
+        password_keyword=src.password_keyword,
+        order_index=new_order,
+        created_at=now_wib(),
+    )
+    db.add(copy)
+    db.flush()
+
+    opt_map: dict[int, QuestionOption] = {}
+    for opt in sorted(src.options, key=lambda o: o.order_index or 0):
+        new_opt = QuestionOption(
+            question_id=copy.id,
+            option_text=opt.option_text,
+            is_correct=opt.is_correct,
+            order_index=opt.order_index,
+        )
+        db.add(new_opt)
+        db.flush()
+        opt_map[opt.id] = new_opt
+
+    def _copy_file(rel: str | None) -> str | None:
+        if not rel:
+            return None
+        full = os.path.join(UPLOAD_DIR, rel.lstrip("/"))
+        if not os.path.isfile(full):
+            return None
+        ext = os.path.splitext(rel)[1].lower()
+        subdir = os.path.dirname(rel) or "question-images"
+        new_rel = f"{subdir}/{uuid.uuid4().hex}{ext}"
+        os.makedirs(os.path.join(UPLOAD_DIR, subdir), exist_ok=True)
+        shutil.copy2(full, os.path.join(UPLOAD_DIR, new_rel.lstrip("/")))
+        return new_rel
+
+    for img in sorted(src.images, key=lambda i: i.order_index or 0):
+        new_path = _copy_file(img.path)
+        if new_path:
+            db.add(Image(question_id=copy.id, path=new_path, order_index=img.order_index, created_at=now_wib()))
+
+    for opt in sorted(src.options, key=lambda o: o.order_index or 0):
+        for img in sorted(opt.images, key=lambda i: i.order_index or 0):
+            new_path = _copy_file(img.path)
+            if new_path:
+                db.add(Image(option_id=opt_map[opt.id].id, path=new_path, order_index=img.order_index, created_at=now_wib()))
+
+    distribute_quiz_points(src.form_id, db)
+    db.commit()
+    db.refresh(copy)
+    return _build_question(copy, request)
 
 
 # ── POST /forms/{form_id}/questions/bulk-active-count ─────────────────────────

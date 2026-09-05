@@ -1028,6 +1028,22 @@ export default function AnswerQuiz() {
     return Array.isArray(val) ? val.length > 0 : !!val && String(val).trim().length > 0
   }
 
+  // Huruf opsi terpilih untuk tipe pilihan (MC/checkbox/dropdown) — sama
+  // persis dengan LETTERS di badan soal. Tipe isian/esai/file/dll → null
+  // (jawabannya panjang, tidak enak ditampilkan di map).
+  const pickLetters = (q, val) => {
+    if (!q || !['multiple_choice', 'checkbox', 'dropdown'].includes(q.type)) return null
+    const ids = Array.isArray(val) ? val : []
+    if (!ids.length || !q.options?.length) return null
+    const letters = ids
+      .map((id) => {
+        const oi = q.options.findIndex((o) => o.id === id)
+        return oi >= 0 ? LETTERS[oi % LETTERS.length] : null
+      })
+      .filter(Boolean)
+    return letters.length ? letters.join(',') : null
+  }
+
   if (isQuizStyle) {
     const currentAnswer = answers[current?.id]
     const hasAnswer = isAnswered(current, currentAnswer)
@@ -1037,9 +1053,11 @@ export default function AnswerQuiz() {
     const canProceed = !isRequired || hasAnswer
     const answeredMap = {}
     const reviewedMap = {}
+    const pickedMap = {}
     questions.forEach((q, i) => {
       answeredMap[i] = isAnswered(q, answers[q.id])
       reviewedMap[i] = !!reviewed[q.id]
+      pickedMap[i] = pickLetters(q, answers[q.id])
     })
     const reviewedCount = Object.values(reviewed).filter(Boolean).length
     const missingRequired = questions
@@ -1110,7 +1128,7 @@ export default function AnswerQuiz() {
               onClick={() => setShowMap((v) => !v)}
               className={`inline-flex items-center gap-1.5 text-xs font-bold shrink-0 px-2 h-8 rounded-lg transition-colors ${showMap ? 'bg-white text-[var(--t)]' : 'text-white/80 hover:bg-white/15'
                 }`}
-              aria-label="Show question map"
+              aria-label="Show questions"
             >
               <Grid3x3 className="w-3.5 h-3.5" />
               {currentIdx + 1}/{totalQ}
@@ -1125,6 +1143,7 @@ export default function AnswerQuiz() {
           current={currentIdx}
           answered={answeredMap}
           reviewed={reviewedMap}
+          picked={pickedMap}
           onSelect={(idx) => { setShowMap(false); goToQuestion(idx) }}
         />
 
@@ -1801,7 +1820,7 @@ function Legend({ dot, label }) {
   )
 }
 
-function QuestionMapDrawer({ show, onClose, total, current, answered, reviewed, onSelect }) {
+function QuestionMapDrawer({ show, onClose, total, current, answered, reviewed, picked, onSelect }) {
   const { t } = useTranslation()
   return (
     <AnimatePresence>
@@ -1835,8 +1854,8 @@ function QuestionMapDrawer({ show, onClose, total, current, answered, reviewed, 
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto pt-4">
-              <QuestionMap total={total} current={current} answered={answered} reviewed={reviewed} onSelect={onSelect} />
+            <div className="flex-1 overflow-y-auto px-2 pb-2 pt-4">
+              <QuestionMap total={total} current={current} answered={answered} reviewed={reviewed} picked={picked} onSelect={onSelect} />
               <div className="flex flex-wrap items-center gap-4 mt-4 text-[11px] text-gray-400">
                 <Legend dot="bg-correct" label={t('answerQuiz.legendAnswered')} />
                 <Legend dot="bg-warn" label={t('answerQuiz.legendMarked')} />
@@ -2315,7 +2334,7 @@ function PreviewNotice() {
       <div className="inline-flex items-center gap-2 bg-ink text-white px-3.5 py-2 rounded-full shadow-lift text-xs">
         <Lock className="w-3.5 h-3.5 shrink-0" />
         <span>
-          <span className="font-semibold">Preview mode</span> — not yet published
+          <span className="font-semibold">Preview</span>
         </span>
       </div>
     </div>

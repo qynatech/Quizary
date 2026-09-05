@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, GripVertical, Upload, ArrowLeft, Check, HelpCircle, Trash2, Image as ImageIcon, X, Layers, Download, TextQuote, Unlink, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
+import { Plus, GripVertical, Upload, ArrowLeft, Check, HelpCircle, Trash2, Image as ImageIcon, X, Layers, Download, TextQuote, Unlink, ChevronDown, ChevronUp, Pencil, Copy } from 'lucide-react'
 import {
   DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor,
   useSensor, useSensors, closestCenter, useDroppable,
@@ -526,7 +526,7 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
   )
 }
 
-function QuestionCard({ question, index, onDelete, isDragging, isQuiz, selected, onToggleSelect, groupId, groupIndex, _groupSize, moveButtons }) {
+function QuestionCard({ question, index, onDelete, onDuplicate, duplicating, isDragging, isQuiz, selected, onToggleSelect, groupId, groupIndex, _groupSize, moveButtons }) {
   const { t } = useTranslation()
   const typeLabels = {
     multiple_choice: t('questionBuilder.typeMultipleChoice'),
@@ -561,6 +561,15 @@ function QuestionCard({ question, index, onDelete, isDragging, isQuiz, selected,
         </div>
         <div className="flex gap-1 shrink-0 items-center">
           {moveButtons}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDuplicate?.(question) }}
+            disabled={duplicating}
+            className="text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-primary px-2 py-1 transition-colors disabled:opacity-40 disabled:cursor-wait"
+            title={t('questionBuilder.duplicateTitle')}
+            aria-label={t('questionBuilder.duplicateTitle')}
+          >
+            <Copy className={`w-3.5 h-3.5 ${duplicating ? 'animate-pulse' : ''}`} />
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(question) }}
             className="text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-incorrect px-2 py-1 transition-colors"
@@ -630,7 +639,7 @@ function QuestionCard({ question, index, onDelete, isDragging, isQuiz, selected,
   )
 }
 
-function SortableQuestionCard({ question, index, onEdit, onDelete, isQuiz, selected, onToggleSelect, groupId, groupIndex, groupSize, onMove, isFirst, isLast, selectCount }) {
+function SortableQuestionCard({ question, index, onEdit, onDelete, onDuplicate, duplicating, isQuiz, selected, onToggleSelect, groupId, groupIndex, groupSize, onMove, isFirst, isLast, selectCount }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: question.id,
     data: { type: 'question', questionId: question.id },
@@ -680,6 +689,8 @@ function SortableQuestionCard({ question, index, onEdit, onDelete, isQuiz, selec
           question={question}
           index={index}
           onDelete={onDelete}
+          onDuplicate={onDuplicate}
+          duplicating={duplicating}
           isDragging={isDragging}
           isQuiz={isQuiz}
           selected={selected}
@@ -714,7 +725,7 @@ function SortableQuestionCard({ question, index, onEdit, onDelete, isQuiz, selec
 }
 
 // inner card — samakan dengan QuestionCard biasa (ponytail: reuse, bukan varian baru)
-function GroupInnerRow({ q, globalIndex, isQuiz, selected, onToggleSelect, onEdit, onDelete, selectCount }) {
+function GroupInnerRow({ q, globalIndex, isQuiz, selected, onToggleSelect, onEdit, onDelete, onDuplicate, duplicating, selectCount }) {
   const holdProps = useHoldSelect({ selectedCount: selectCount, onToggle: () => onToggleSelect(q.id) })
   return (
     <div
@@ -734,6 +745,8 @@ function GroupInnerRow({ q, globalIndex, isQuiz, selected, onToggleSelect, onEdi
         question={q}
         index={globalIndex}
         onDelete={onDelete}
+        onDuplicate={onDuplicate}
+        duplicating={duplicating}
         isDragging={false}
         isQuiz={isQuiz}
         selected={selected}
@@ -746,7 +759,7 @@ function GroupInnerRow({ q, globalIndex, isQuiz, selected, onToggleSelect, onEdi
   )
 }
 
-function SortableGroupCard({ groupId, questions: members, groupIndex, expanded, onToggle, isQuiz, selectedIds, onToggleSelect, onToggleGroupSelect, onEdit, onDelete, onUngroup, onMove, isFirst, isLast, selectCount, idToIndex, editing, showForm, onSave, onCancel, saveLoading, errors, sections, sectionsAllowed, scoringMode, allQuestions, onAddToGroup }) {
+function SortableGroupCard({ groupId, questions: members, groupIndex, expanded, onToggle, isQuiz, selectedIds, onToggleSelect, onToggleGroupSelect, onEdit, onDelete, onDuplicate, duplicating, onUngroup, onMove, isFirst, isLast, selectCount, idToIndex, editing, showForm, onSave, onCancel, saveLoading, errors, sections, sectionsAllowed, scoringMode, allQuestions, onAddToGroup }) {
   const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: `g-${groupId}`,
@@ -839,7 +852,7 @@ function SortableGroupCard({ groupId, questions: members, groupIndex, expanded, 
                         </motion.div>
                       )
                     }
-                    return <GroupInnerRow key={q.id} q={q} globalIndex={gIdx} isQuiz={isQuiz} selected={selectedIds.includes(q.id)} onToggleSelect={onToggleSelect} onEdit={onEdit} onDelete={onDelete} selectCount={selectCount} />
+                    return <GroupInnerRow key={q.id} q={q} globalIndex={gIdx} isQuiz={isQuiz} selected={selectedIds.includes(q.id)} onToggleSelect={onToggleSelect} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} duplicating={duplicating} selectCount={selectCount} />
                   })}
                   {/* add picker / drop zone */}
                   <div ref={setAddRef} className={`rounded-xl border-2 border-dashed p-3 transition-colors ${isAddOver ? 'border-primary bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-ink-900/40'}`}>
@@ -892,7 +905,7 @@ function SortableGroupCard({ groupId, questions: members, groupIndex, expanded, 
   )
 }
 
-function QuestionItem({ q, index, onEdit, onDelete, isQuiz, selected, onToggleSelect, editOpen, onSave, onCancel, saveLoading, errors, sections, sectionsAllowed, groupId, groupIndex, groupSize, onMove, totalCount, selectCount, scoringMode }) {
+function QuestionItem({ q, index, onEdit, onDelete, onDuplicate, duplicating, isQuiz, selected, onToggleSelect, editOpen, onSave, onCancel, saveLoading, errors, sections, sectionsAllowed, groupId, groupIndex, groupSize, onMove, totalCount, selectCount, scoringMode }) {
   const { t } = useTranslation()
   if (editOpen) {
     return (
@@ -948,6 +961,8 @@ function QuestionItem({ q, index, onEdit, onDelete, isQuiz, selected, onToggleSe
       index={index}
       onEdit={onEdit}
       onDelete={onDelete}
+      onDuplicate={onDuplicate}
+      duplicating={duplicating}
       isQuiz={isQuiz}
       selected={selected}
       onToggleSelect={onToggleSelect}
@@ -1273,6 +1288,22 @@ export default function QuestionBuilder() {
       }
     } catch {
       setDeleteTarget(question)
+    }
+  }
+
+  // Duplikasi penuh 1 soal tepat di bawah asal (server yang mengatur order).
+  const [duplicatingId, setDuplicatingId] = useState(null)
+  const handleDuplicate = async (question) => {
+    if (duplicatingId) return
+    setDuplicatingId(question.id)
+    try {
+      await api.post(`/questions/${question.id}/duplicate`)
+      toast.success(t('questionBuilder.duplicated'))
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || err.response?.data?.message || t('questionBuilder.duplicateFailed'))
+    } finally {
+      setDuplicatingId(null)
     }
   }
 
@@ -1908,6 +1939,8 @@ export default function QuestionBuilder() {
                                       onToggleGroupSelect={toggleGroupSelect}
                                       onEdit={editQuestion}
                                       onDelete={confirmDeleteSingle}
+                                      onDuplicate={handleDuplicate}
+                                      duplicating={duplicatingId}
                                       onUngroup={(gid) => setUngroupConfirm({ mode: 'group', groupId: gid, count: blk.questions.length, groupIndex: groupIndexMap[gid] || 0 })}
                                       onMove={(dir) => moveBlock(blk.id, dir)}
                                       isFirst={isFirst}
@@ -1936,6 +1969,8 @@ export default function QuestionBuilder() {
                                     index={idToIndex.get(q.id) ?? 0}
                                     onEdit={editQuestion}
                                     onDelete={confirmDeleteSingle}
+                                    onDuplicate={handleDuplicate}
+                                    duplicating={duplicatingId}
                                     isQuiz={form.type === 'quiz'}
                                     selected={selectedIds.includes(q.id)}
                                     onToggleSelect={toggleSelect}
@@ -1986,6 +2021,8 @@ export default function QuestionBuilder() {
                             onToggleGroupSelect={toggleGroupSelect}
                             onEdit={editQuestion}
                             onDelete={confirmDeleteSingle}
+                            onDuplicate={handleDuplicate}
+                            duplicating={duplicatingId}
                             onUngroup={(gid) => setUngroupConfirm({ mode: 'group', groupId: gid, count: blk.questions.length, groupIndex: groupIndexMap[gid] || 0 })}
                             onMove={(dir) => moveBlock(blk.id, dir)}
                             isFirst={isFirst}
@@ -2014,6 +2051,8 @@ export default function QuestionBuilder() {
                           index={idToIndex.get(q.id) ?? 0}
                           onEdit={editQuestion}
                           onDelete={confirmDeleteSingle}
+                          onDuplicate={handleDuplicate}
+                          duplicating={duplicatingId}
                           isQuiz={form.type === 'quiz'}
                           selected={selectedIds.includes(q.id)}
                           onToggleSelect={toggleSelect}

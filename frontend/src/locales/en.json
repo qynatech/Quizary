@@ -479,6 +479,9 @@
     "deleted": "Question deleted",
     "added": "Question added",
     "updated": "Question updated",
+    "duplicated": "Question duplicated below the original",
+    "duplicateFailed": "Failed to duplicate question",
+    "duplicateTitle": "Duplicate question",
     "fileTooLarge": "File too large ({{size}}MB). Max 10MB for question image/audio",
     "optionMediaQueued": "Option media selected — will be uploaded after saving",
     "groupLabel": "Group {{n}}",
@@ -545,7 +548,7 @@
     "start": "Start",
     "questionCount": "{{count}} questions",
     "timeMin": "{{minutes}} min",
-    "previewMode": "Preview mode — not yet published"
+    "previewMode": "Preview"
   },
   "answerQuiz": {
     "cheatWarningTitle": "Suspicious activity detected ({{reason}}).",
@@ -575,7 +578,7 @@
     "saving": "Saving…",
     "notSaved": "Not saved — retrying",
     "legendAnswered": "Answered",
-    "questionMap": "Question map",
+    "questionMap": "Questions",
     "legendMarked": "Marked",
     "legendUnanswered": "Unanswered",
     "questionLabel": "Question {{n}}",

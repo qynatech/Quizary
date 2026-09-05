@@ -15,7 +15,7 @@ export function ConfirmModal({ show, title, message, onConfirm, onCancel, loadin
             initial={{ scale: 0.96, opacity: 0, y: 8 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 8 }}
-            className="bg-white dark:bg-ink-900 rounded-2xl p-6 w-full max-w-sm shadow-lift"
+            className="bg-white dark:bg-ink-900 border dark:border-ink-800 rounded-2xl p-6 w-full max-w-sm shadow-lift"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-display text-lg font-bold text-ink dark:text-gray-100 mb-2">{title}</h3>
