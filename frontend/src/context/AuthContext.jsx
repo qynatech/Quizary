@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import api from '../api/client'
+import { markNewAccount } from '../features/tour/tourStorage'
 import { AuthContext } from './AuthContext'
 
 function readStoredUser() {
@@ -76,7 +77,9 @@ export function AuthProvider({ children }) {
     try {
       // Register kini hanya membuat akun + mengirim OTP ke email — TIDAK auto-login.
       const res = await api.post('/register', { name, email, password, password_confirmation })
-      return res.data
+      const data = res.data
+      markNewAccount(data.email)
+      return data
     } finally {
       setLoading(false)
     }
