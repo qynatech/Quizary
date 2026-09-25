@@ -9,6 +9,8 @@ import { useToast } from '../../hooks/useToast'
 import { useAuth } from '../../hooks/useAuth'
 import { persistLang } from '../../lib/i18n.js'
 import api from '../../api/client'
+import { usePageTour } from '../../features/tour/TourContext'
+import TourReplayButton from '../../features/tour/TourReplayButton'
 
 function GeminiHelpModal({ show, onClose }) {
   const { t } = useTranslation()
@@ -198,18 +200,31 @@ export default function Settings() {
     }
   }
 
+  const tourVariant = keyStatus?.connected ? 'gemini-connected' : 'gemini-unconnected'
+  const tourSteps = [
+    { target: '[data-tour="settings-header"]', title: 'Personalize Quizary', content: 'These settings apply to your account and stay on this device when appropriate.', placement: 'bottom' },
+    { target: '[data-tour="settings-appearance"]', title: 'Comfortable appearance', content: 'Choose light, dark, or system theme, then adjust the text size for your reading comfort.', placement: 'right' },
+    { target: '[data-tour="settings-language"]', title: 'Choose your language', content: 'Switch between Indonesian and English without leaving the workspace.', placement: 'right' },
+    { target: '[data-tour="settings-gemini"]', title: t('settings.geminiKeyTitle'), content: 'Add your own Gemini key to unlock AI-assisted draft generation. The key stays managed by your account.', placement: 'top' },
+    { target: '[data-tour="settings-tour"]', title: 'Replay this page tour', content: 'Use this control when you want to revisit the Settings walkthrough without leaving the page.', placement: 'top' },
+  ]
+  usePageTour('settings', { variant: tourVariant, variantKey: tourVariant, steps: tourSteps })
+
   return (
     <div>
-      <PageHeader
-        eyebrow={t('settings.eyebrow')}
-        title={t('settings.title')}
-        description={t('settings.description')}
-      />
+      <div data-tour="settings-header">
+        <PageHeader
+          eyebrow={t('settings.eyebrow')}
+          title={t('settings.title')}
+          description={t('settings.description')}
+        />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
-        <Card className="p-5">
-          <h2 className="font-display font-semibold text-ink dark:text-gray-100 flex items-center gap-2">
-            <SettingsIcon className="w-4 h-4 text-primary" />
+         <Card data-tour="settings-appearance" className="p-5">
+           <h2 className="font-display font-semibold text-ink dark:text-gray-100 flex items-center gap-2">
+             <SettingsIcon className="w-4 h-4 text-primary" />
+
             {t('settings.appearance')}
           </h2>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('settings.appearanceDesc')}</p>
@@ -292,9 +307,10 @@ export default function Settings() {
           </div>
         </Card>
 
-        <Card className="p-5">
-          <h2 className="font-display font-semibold text-ink dark:text-gray-100 flex items-center gap-2">
-            <Languages className="w-4 h-4 text-primary" />
+         <Card data-tour="settings-language" className="p-5">
+           <h2 className="font-display font-semibold text-ink dark:text-gray-100 flex items-center gap-2">
+             <Languages className="w-4 h-4 text-primary" />
+
             {t('settings.languageRegion')}
           </h2>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('settings.languageDesc')}</p>
@@ -318,10 +334,12 @@ export default function Settings() {
       </div>
 
       <div className="mt-4">
-        <Card className="p-5">
-          <div className="flex items-center gap-2">
+         <Card data-tour="settings-gemini" className="p-5">
+           <div className="flex items-center gap-2">
             <h2 className="font-display font-semibold text-ink dark:text-gray-100 flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-primary" />
+
+             <KeyRound className="w-4 h-4 text-primary" />
+
               {t('settings.geminiKeyTitle')}
             </h2>
             <button
@@ -378,9 +396,25 @@ export default function Settings() {
         </Card>
       </div>
 
-      <div className="mt-6 lg:hidden">
-        <Card className="p-5">
-          <Button
+       <div className="mt-4">
+         <Card data-tour="settings-tour" className="p-5">
+           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+             <div className="min-w-0">
+               <h2 className="font-display font-semibold text-ink dark:text-gray-100">Product tour</h2>
+               <p className="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
+                 Replay the guided tour for Settings whenever you need a refresher.
+               </p>
+             </div>
+             <TourReplayButton page="settings" variant={tourVariant} className="w-full sm:w-auto" />
+           </div>
+         </Card>
+       </div>
+
+       <div className="mt-6 lg:hidden">
+
+         <Card data-tour="settings-logout" className="p-5">
+           <Button
+
             variant="ghost-danger"
             className="w-full"
             icon={<LogOut className="w-4 h-4" />}

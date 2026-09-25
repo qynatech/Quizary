@@ -9,6 +9,7 @@ import { Button, Input, Select, Toggle, Card, StatusBadge, ConfirmModal, PageHea
 import { stripTags } from '../../lib/sanitize'
 import { resolveMediaUrl } from '../../lib/media'
 import { useTranslation } from 'react-i18next'
+import { usePageTour } from '../../features/tour/TourContext'
 
 function ShareLink({ value }) {
   const { t } = useTranslation()
@@ -38,9 +39,9 @@ function ShareLink({ value }) {
   )
 }
 
-function SectionCard({ title, icon, children }) {
+function SectionCard({ title, icon, children, 'data-tour': dataTour }) {
   return (
-    <Card padding={false}>
+    <Card data-tour={dataTour} padding={false}>
       <div className="flex items-center gap-2.5 px-5 pt-4 pb-3">
         <span className="text-primary shrink-0">{icon}</span>
         <h2 className="font-display font-semibold text-ink dark:text-gray-100">{title}</h2>
@@ -507,6 +508,38 @@ export default function FormEdit() {
     setManualPoints(Math.max(0, Math.min(999, Math.round(value))))
   }
 
+  const formTourVariant = form ? [
+    form.type,
+    form.status,
+    form.scoring_mode || 'auto',
+    form.is_restricted ? 'restricted' : 'open',
+    form.display_style || 'card',
+    form.timer_seconds ? 'timer' : 'no-timer',
+    form.starts_at || form.ends_at ? 'scheduled' : 'always',
+    form.banner_path ? 'banner' : 'no-banner',
+    form.reveal_score === false ? 'hide-score' : 'show-score',
+    form.reveal_answers === false ? 'hide-answers' : 'show-answers',
+    form.shuffle_questions || form.shuffle_options ? 'shuffle' : 'ordered',
+  ].join('-') : 'loading'
+  const formTourSteps = form ? [
+    { target: '[data-tour="form-edit-header"]', title: 'Form workspace', content: 'Use these tabs to move between settings, questions, results, and analytics.', placement: 'bottom' },
+    { target: '[data-tour="form-edit-basics"]', title: 'Start with the basics', content: 'Write the title, description, and public status before configuring response rules.', placement: 'right' },
+     { target: '[data-tour="form-edit-access"]', title: 'Control who can respond', content: form.is_restricted ? 'Restricted mode keeps access and one-response rules linked for safety.' : 'Choose login, response limits, and whether submissions appear in history.', placement: 'right' },
+     { target: '[data-tour="form-edit-design"]', title: 'Shape the experience', content: 'Choose a display style and theme color so the form feels consistent with your brand.', placement: 'left' },
+     { target: '[data-tour="form-edit-make-quiz"]', title: form.type === 'quiz' ? 'Keep quiz mode enabled' : 'Make this a quiz', content: form.type === 'quiz' ? 'Quiz mode unlocks scoring, leaderboard, score review, and other quiz-only settings.' : 'Turn this into a quiz when respondents need scoring and answer keys.', placement: 'right' },
+
+    ...(form.type === 'quiz' ? [
+      { target: '[data-tour="form-edit-quiz"]', title: form.scoring_mode === 'manual' ? 'Tune manual scoring' : 'Choose how the quiz is scored', content: form.scoring_mode === 'manual' ? 'Assign points to questions and control which answers are scored.' : 'Automatic scoring distributes the quiz pool across scored questions.', placement: 'left' },
+      { target: '[data-tour="form-edit-behavior"]', title: 'Quiz behavior', content: 'Set leaderboard, score, answer review, restrictions, shuffle, timer, and thank-you behavior.', placement: 'left' },
+    ] : []),
+    { target: '[data-tour="form-edit-schedule"]', title: 'Schedule the window', content: 'Set optional open and close times. Leave both empty to accept responses whenever the form is published.', placement: 'top' },
+     { target: '[data-tour="form-edit-share"]', title: 'Share when ready', content: 'Copy the public link, open a preview, or generate a QR code for your audience.', placement: 'left' },
+     { target: '[data-tour="form-edit-banner"]', title: 'Add a banner', content: 'Upload a visual banner to give the public form a branded introduction.', placement: 'left' },
+     ...(dirty ? [{ target: '[data-tour="form-edit-save"]', title: 'Save your changes', content: 'Your changes are not live until you save them.', placement: 'top' }] : []),
+
+  ] : []
+  usePageTour('form-edit', { variant: formTourVariant, variantKey: formTourVariant, steps: formTourSteps })
+
   if (loading) return <PageSkeleton />
   if (!form) return null
 
@@ -520,22 +553,26 @@ export default function FormEdit() {
     <div>
       <FormBackButton />
 
-      <PageHeader
-        eyebrow={t('formEdit.workspace')}
-        title={form.title ? <RichText html={form.title} className="rich-text" /> : t('formEdit.formSettings')}
-        description={
-          <span className="inline-flex items-center gap-2">
-            <StatusBadge status={form.status} />
-            <span className="text-gray-400 dark:text-gray-500"></span>
-          </span>
-        }
-      />
+      <div data-tour="form-edit-header">
+        <PageHeader
+          eyebrow={t('formEdit.workspace')}
+          title={form.title ? <RichText html={form.title} className="rich-text" /> : t('formEdit.formSettings')}
+          description={
+            <span className="inline-flex items-center gap-2">
+              <StatusBadge status={form.status} />
+              <span className="text-gray-400 dark:text-gray-500"></span>
+            </span>
+          }
+
+        />
+      </div>
 
       <FormSubNav formId={id} className="mt-5" hasUnsavedChanges={dirty} />
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         <div className="space-y-6 order-2 lg:order-1">
-          <SectionCard title={t('formEdit.basicInfo')} icon={<Info className="w-4 h-4" />}>
+           <SectionCard data-tour="form-edit-basics" title={t('formEdit.basicInfo')} icon={<Info className="w-4 h-4" />}>
+
             <div className="space-y-5">
               <div ref={titleRef}>
                 <span className="field-label">{t('formEdit.titleLabel')}</span>
@@ -595,7 +632,8 @@ export default function FormEdit() {
             </div>
           </SectionCard>
 
-          <SectionCard title={t('formEdit.access')} icon={<Lock className="w-4 h-4" />}>
+           <SectionCard data-tour="form-edit-access" title={t('formEdit.access')} icon={<Lock className="w-4 h-4" />}>
+
             <div ref={accessRef} className="divide-y divide-gray-100 dark:divide-gray-800">
               <SettingRow
                 title={t('formEdit.limitOneResponse')}
@@ -637,7 +675,8 @@ export default function FormEdit() {
             </div>
           </SectionCard>
 
-          <SectionCard title={t('formEdit.design')} icon={<Palette className="w-4 h-4" />}>
+           <SectionCard data-tour="form-edit-design" title={t('formEdit.design')} icon={<Palette className="w-4 h-4" />}>
+
             <div ref={designRef} className="space-y-5">
               <div>
                 <label className="field-label">{t('formEdit.designType')}</label>
@@ -710,26 +749,31 @@ export default function FormEdit() {
             </div>
           </SectionCard>
 
-          <SectionCard title={t('formEdit.behavior')} icon={<Settings2 className="w-4 h-4" />}>
+           <SectionCard data-tour="form-edit-behavior" title={t('formEdit.behavior')} icon={<Settings2 className="w-4 h-4" />}>
+
             <div ref={behaviorRef} className="divide-y divide-gray-100 dark:divide-gray-800 rounded-xl overflow-hidden">
-              <SettingRow
-                title={t('formEdit.makeQuiz')}
-                control={
-                  <Toggle
-                    label={t('formEdit.makeQuiz')}
-                    checked={isQuiz}
-                    onChange={(v) => {
-                      const nt = v ? 'quiz' : 'form'
-                      if (nt === 'form') setForm((prev) => ({ ...prev, type: nt, show_leaderboard: false, is_restricted: false }))
-                      else setForm((prev) => ({ ...prev, type: nt }))
-                      setErrors((prev) => ({ ...prev, type: undefined, show_leaderboard: undefined, is_restricted: undefined }))
-                    }}
-                  />
-                }
-              />
+               <div data-tour="form-edit-make-quiz">
+                 <SettingRow
+                   title={t('formEdit.makeQuiz')}
+                   control={
+                     <Toggle
+                       label={t('formEdit.makeQuiz')}
+                       checked={isQuiz}
+                       onChange={(v) => {
+                         const nt = v ? 'quiz' : 'form'
+                         if (nt === 'form') setForm((prev) => ({ ...prev, type: nt, show_leaderboard: false, is_restricted: false }))
+                         else setForm((prev) => ({ ...prev, type: nt }))
+                         setErrors((prev) => ({ ...prev, type: undefined, show_leaderboard: undefined, is_restricted: undefined }))
+                       }}
+                     />
+                   }
+                 />
+               </div>
+
               {errors.type && <p className="field-error px-4 pb-2 -mt-1" role="alert">{errors.type}</p>}
               {isQuiz && (
-                <div className="ml-4 pl-4 border-l-2 border-primary/25 dark:border-primary/30 divide-y divide-gray-100 dark:divide-gray-800">
+                 <div data-tour="form-edit-quiz" className="ml-4 pl-4 border-l-2 border-primary/25 dark:border-primary/30 divide-y divide-gray-100 dark:divide-gray-800">
+
                   <div className="py-3">
                     <p className="text-sm font-medium text-ink dark:text-gray-100">{t('formEdit.scoringMode')}</p>
                     <div className="mt-3">
@@ -797,7 +841,8 @@ export default function FormEdit() {
                   ref={timerRef}
                 />
               </div>
-              <div className="py-4" ref={scheduleRef}>
+               <div data-tour="form-edit-schedule" className="py-4" ref={scheduleRef}>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="field-label">{t('formEdit.opensAt')}</label>
@@ -847,7 +892,8 @@ export default function FormEdit() {
         </div>
 
         <div className="space-y-6 lg:sticky lg:top-6 self-start order-1 lg:order-2">
-          <SectionCard title={t('formEdit.share')} icon={<Link2 className="w-4 h-4" />}>
+           <SectionCard data-tour="form-edit-share" title={t('formEdit.share')} icon={<Link2 className="w-4 h-4" />}>
+
             <ShareLink value={`${window.location.origin}/q/${form.short_code}`} />
             <div className="mt-4 flex gap-2">
               <Button
@@ -868,7 +914,8 @@ export default function FormEdit() {
               </Button>
             </div>
           </SectionCard>
-          <SectionCard title={t('formEdit.banner')} icon={<ImageUp className="w-4 h-4" />}>
+           <SectionCard data-tour="form-edit-banner" title={t('formEdit.banner')} icon={<ImageUp className="w-4 h-4" />}>
+
             {form.banner_path ? (
               <div className="relative mb-4">
                 <img src={resolveMediaUrl(form.banner_path)} alt="Banner" className="w-full h-36 object-cover rounded-xl" />
@@ -917,7 +964,8 @@ export default function FormEdit() {
             <div className="pointer-events-auto flex items-center gap-3 bg-white dark:bg-ink-900 border border-gray-200 dark:border-gray-700 shadow-lift rounded-2xl px-4 py-3 w-full max-w-md">
               <p className="text-sm text-gray-500 dark:text-gray-400 flex-1 truncate">{t('formEdit.unsavedChanges')}</p>
               <Button variant="ghost" size="sm" onClick={handleDiscard}>{t('formEdit.discard')}</Button>
-              <Button size="sm" onClick={handleSave} loading={saving} icon={<Save className="w-4 h-4" />}>
+                   <Button data-tour="form-edit-save" size="sm" onClick={handleSave} loading={saving} icon={<Save className="w-4 h-4" />}>
+
                 {saving ? t('formEdit.saving') : t('formEdit.saveChanges')}
               </Button>
             </div>

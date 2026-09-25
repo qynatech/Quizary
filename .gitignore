@@ -4,6 +4,7 @@ quizary-*
 .opencode/
 .vscode/
 .superpowers/
+.21st/
 
 .env
 .env.prod

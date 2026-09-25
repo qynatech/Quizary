@@ -4,6 +4,8 @@ import { motion } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
+import { useRegistrationStatus } from '../../hooks/useRegistrationStatus'
+import { getAuthenticatedPath } from '../../lib/authRedirect'
 import { Button, Input, Card } from '../../components/ui'
 import { AuthShell } from '../../components/auth/AuthShell'
 
@@ -12,6 +14,7 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login } = useAuth()
+  const { registrationOpen, loading: registrationLoading } = useRegistrationStatus()
   const from = location.state?.from || new URLSearchParams(location.search).get('next') || '/'
 
   const [form, setForm] = useState({ email: '', password: '' })
@@ -38,8 +41,8 @@ export default function Login() {
     if (!validate()) return
     setLoading(true)
     try {
-      await login(form.email, form.password)
-      navigate(from, { replace: true })
+      const data = await login(form.email, form.password)
+      navigate(getAuthenticatedPath(data.user, from), { replace: true })
     } catch (err) {
       const status = err.response?.status
       const msg = err.response?.data?.message
@@ -59,6 +62,10 @@ export default function Login() {
       } else if (status === 401) {
         setError(t('auth.invalidCredentials'))
       } else if (status === 403) {
+        if (msg === 'Akun user tidak aktif') {
+          setError(t('auth.accountInactive'))
+          return
+        }
         // Email belum verifikasi → langsung lempar ke halaman OTP, tanpa alert di login.
         const qs = new URLSearchParams({ email: form.email })
         if (from && from !== '/') qs.set('next', from)
@@ -86,12 +93,14 @@ export default function Login() {
       eyebrow={t('auth.welcomeBack')}
       title={t('auth.signInTitle')}
       footer={
-        <>
-          {t('auth.noAccount')}{' '}
-          <Link to={from !== '/' ? `/register?next=${encodeURIComponent(from)}` : '/register'} state={from !== '/' ? { from } : undefined} className="font-semibold text-primary hover:text-primary-600 transition-colors">
-            {t('auth.signUp')}
-          </Link>
-        </>
+        !registrationLoading && registrationOpen && (
+          <>
+            {t('auth.noAccount')}{' '}
+            <Link to={from !== '/' ? `/register?next=${encodeURIComponent(from)}` : '/register'} state={from !== '/' ? { from } : undefined} className="font-semibold text-primary hover:text-primary-600 transition-colors">
+              {t('auth.signUp')}
+            </Link>
+          </>
+        )
       }
     >
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>

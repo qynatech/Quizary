@@ -7,6 +7,7 @@ import api from '../../api/client'
 import { useToast } from '../../hooks/useToast'
 import { stripTags } from '../../lib/sanitize'
 import { Button, Toggle, Select, Card, PageHeader, RichTextEditor, CategoryManager } from '../../components/ui'
+import { usePageTour } from '../../features/tour/TourContext'
 
 export default function FormCreate() {
   const { t } = useTranslation()
@@ -25,6 +26,16 @@ export default function FormCreate() {
   const [error, setError] = useState('')
   const [categories, setCategories] = useState([])
   const [showCatMgr, setShowCatMgr] = useState(false)
+
+  usePageTour('form-create', {
+    variant: 'default',
+    steps: [
+      { target: '[data-tour="form-create-title"]', title: 'Name your form', content: 'Give your form a clear title. You can add a description to guide respondents.', placement: 'right' },
+      { target: '[data-tour="form-create-type"]', title: 'Choose the experience', content: 'Use a form for open responses or a quiz when you need scoring and answer keys.', placement: 'right' },
+      { target: '[data-tour="form-create-access"]', title: 'Set response rules', content: 'Require login or limit each respondent to one response before you publish.', placement: 'top' },
+      { target: '[data-tour="form-create-submit"]', title: 'Create and continue', content: 'Save the form first, then add questions and customize the respondent experience.', placement: 'top' },
+    ],
+  })
 
   const fetchCats = () => api.get('/categories').then((r) => setCategories(r.data)).catch(()=>{})
   useEffect(() => { fetchCats() }, [])
@@ -64,24 +75,28 @@ export default function FormCreate() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <button
-        onClick={() => navigate('/forms')}
+         <button
+         data-tour="form-create-back"
+         onClick={() => navigate('/forms')}
+
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 hover:text-ink dark:hover:text-gray-100 transition-colors mb-4"
       >
         <ArrowLeft className="w-4 h-4" /> {t('formCreate.back')}
       </button>
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
-          <PageHeader
-            eyebrow={t('formCreate.eyebrow')}
-            title={t('formCreate.title')}
-            description={t('formCreate.description')}
-          />
+           <PageHeader
+             eyebrow={t('formCreate.eyebrow')}
+             title={t('formCreate.title')}
+             description={t('formCreate.description')}
+           />
+
 
           <form onSubmit={handleSubmit} className="space-y-5 mt-6">
             <Card className="space-y-5">
-              <div>
-                <span className="field-label">{t('formCreate.titleLabel')}</span>
+               <div data-tour="form-create-title">
+                 <span className="field-label">{t('formCreate.titleLabel')}</span>
+
                 <RichTextEditor
                   value={form.title || ''}
                   onChange={(html) => { setForm((prev) => ({ ...prev, title: html })); setError('') }}
@@ -102,8 +117,9 @@ export default function FormCreate() {
                 />
               </div>
 
-              <div>
-                <span className="field-label">{t('formCreate.typeLabel')}</span>
+               <div data-tour="form-create-type">
+                 <span className="field-label">{t('formCreate.typeLabel')}</span>
+
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { value: 'form', label: t('formCreate.typeForm'), desc: t('formCreate.typeFormDesc') },
@@ -150,7 +166,8 @@ export default function FormCreate() {
               </div>
             </Card>
 
-            <Card className="divide-y divide-gray-100 dark:divide-gray-800">
+             <Card data-tour="form-create-access" className="divide-y divide-gray-100 dark:divide-gray-800">
+
               <SettingRow
                 title={t('formCreate.requireLogin')}
                 desc={onceLocked ? t('formCreate.requireLoginDescLocked') : t('formCreate.requireLoginDesc')}
@@ -165,7 +182,8 @@ export default function FormCreate() {
             </Card>
 
             <div className="flex gap-3 pt-2">
-              <Button type="submit" loading={loading} className="flex-1" size="lg">
+               <Button data-tour="form-create-submit" type="submit" loading={loading} className="flex-1" size="lg">
+
                 {loading ? t('common.loading') : t('formCreate.create')}
               </Button>
               <Button type="button" variant="secondary" onClick={() => navigate('/forms')} size="lg">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -8,6 +8,7 @@ import { useTheme } from '../../hooks/useTheme'
 import { useToast } from '../../hooks/useToast'
 import { stripTags } from '../../lib/sanitize'
 import { Card, RichTextEditor, RichText, Badge, Toggle, Input, AnswerKeyEditor } from '../../components/ui'
+import { usePageTour } from '../../features/tour/TourContext'
 
 const humanizeType = (t) => (t || '').replace(/_/g, ' ')
 
@@ -288,6 +289,21 @@ export default function AIGenerate() {
   // Edit lock anti race-condition: komposer dikunci selama busy,
   // instruksi ke-2 diblokir sampai request pertama done/gagal/cancel.
   const busy = generating || editing
+  const tourVariant = generating ? 'generating' : step === 2 ? 'review' : 'intro'
+  const tourSteps = useMemo(() => {
+    if (generating) return [{ target: '[data-tour="ai-composer"]', title: 'AI is building your draft', content: 'You can keep working while the draft is generated. Use Cancel if you need to stop.', placement: 'top' }]
+    if (step !== 2) return [
+      { target: '[data-tour="ai-composer"]', title: 'Describe what you need', content: 'Write a clear prompt or attach up to five source files for the AI to use.', placement: 'top' },
+      { target: '[data-tour="ai-file"]', title: 'Bring your own context', content: 'Attach a document when the questions should follow existing material.', placement: 'top' },
+      { target: '[data-tour="ai-generate"]', title: 'Generate your draft', content: 'Review the prompt, then generate a structured form or quiz draft.', placement: 'left' },
+    ]
+    return [
+      { target: '[data-tour="ai-review"]', title: 'Review the generated draft', content: 'Check the title, form type, settings, sections, and questions before accepting.', placement: 'right' },
+      { target: '[data-tour="ai-settings"]', title: 'Tune respondent rules', content: 'Review access limits, quiz behavior, scoring visibility, and schedules.', placement: 'right' },
+      { target: '[data-tour="ai-generate"]', title: 'Accept or keep editing', content: 'Accept the draft when it looks right, or send a follow-up edit request in the composer.', placement: 'left' },
+    ]
+  }, [generating, step])
+  usePageTour('ai-generate', { variant: tourVariant, variantKey: tourVariant, steps: tourSteps })
 
   useEffect(() => {
     api.get('/me/gemini-key/status').then((r) => setKeyStatus(r.data)).catch(() => setKeyStatus({ connected: false, masked: null }))
@@ -722,7 +738,7 @@ export default function AIGenerate() {
   const primaryLabel = !draft ? t('aiGenerate.generate') : promptEmpty ? t('aiGenerate.accept') : t('aiGenerate.sendEdit')
 
   const heroComposer = (
-    <div ref={composerRef} data-testid="ai-composer" aria-busy={busy}>
+    <div ref={composerRef} data-tour="ai-composer" data-testid="ai-composer" aria-busy={busy}>
       <motion.div
         layout
         transition={{ layout: { duration: 0.28, ease: [0.4, 0, 0.2, 1] } }}
@@ -782,8 +798,9 @@ export default function AIGenerate() {
             <div className={`flex min-w-0 flex-1 items-center gap-1 overflow-hidden bg-white/90 py-2 pl-2 pr-3 shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-[border-radius] duration-200 dark:bg-ink-900/85 ${promptExpanded ? 'rounded-3xl' : 'rounded-full'}`}>
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
-                disabled={files.length >= MAX_FILES}
+                 onClick={() => fileRef.current?.click()}
+                 data-tour="ai-file"
+                 disabled={files.length >= MAX_FILES}
                 aria-label={t('aiGenerate.filesLabel')}
                 title={t('aiGenerate.filesLabel')}
                 className="flex h-9 w-9 shrink-0 self-center items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-ink disabled:opacity-40 dark:text-gray-500 dark:hover:bg-ink-800 dark:hover:text-gray-200"
@@ -804,8 +821,10 @@ export default function AIGenerate() {
             </div>
             <button
               type="button"
-              onClick={handlePrimaryButton}
-              disabled={primaryDisabled}
+                 data-tour="ai-generate"
+                 onClick={handlePrimaryButton}
+                 disabled={primaryDisabled}
+
               aria-label={primaryLabel}
               title={primaryLabel}
               className={`flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-ink-900 text-white shadow-[0_8px_20px_-6px_rgba(15,23,42,0.5)] transition-all hover:bg-ink-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-ink-900 dark:hover:bg-gray-200 ${!draft || !promptEmpty ? 'h-11 w-11' : 'h-11 px-5 text-sm font-semibold'}`}
@@ -873,8 +892,9 @@ export default function AIGenerate() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <div className="flex items-center gap-2">
-                <button
+               <div className="flex items-center gap-2">
+                 <button
+
                   onClick={toggleTheme}
                   aria-label={t('nav.toggleTheme')}
                   title={t('nav.toggleTheme')}
@@ -915,7 +935,8 @@ export default function AIGenerate() {
             </div>
           </motion.div>
         ) : (
-          <motion.div key="review" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.32, ease: 'easeOut' }} className="mx-auto w-full max-w-3xl space-y-5 px-4 pb-6 sm:px-6">
+             <motion.div key="review" data-tour="ai-review" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.32, ease: 'easeOut' }} className="mx-auto w-full max-w-3xl space-y-5 px-4 pb-6 sm:px-6">
+
             <div className="flex items-center justify-between gap-3">
               <button
                 onClick={() => { setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
@@ -925,8 +946,9 @@ export default function AIGenerate() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <div className="flex items-center gap-2">
-                <button
+               <div className="flex items-center gap-2">
+                 <button
+
                   onClick={toggleTheme}
                   aria-label={t('nav.toggleTheme')}
                   title={t('nav.toggleTheme')}
@@ -944,7 +966,8 @@ export default function AIGenerate() {
 
             {step === 2 && (
               <div className="space-y-5">
-            <Card className="space-y-4">
+             <Card data-tour="ai-settings" className="space-y-4">
+
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <h2 className="font-display font-semibold text-ink dark:text-gray-100">
                   {t('aiGenerate.stepPolish')}

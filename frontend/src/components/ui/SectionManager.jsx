@@ -45,6 +45,7 @@ function SortableSectionCard({ section, questions, canDelete, onDelete, editing,
 
   return (
     <motion.div
+      data-tour="section-manager-section"
       layout={!isDragging}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -424,8 +425,10 @@ export default function SectionManager({ formId, show, onClose, sections: initia
             className="fixed inset-0 z-40 bg-ink/60 backdrop-blur-sm"
             onClick={onClose}
           />
-          <motion.div
-            initial={{ x: '100%' }}
+           <motion.div
+             data-tour="section-manager-panel"
+             initial={{ x: '100%' }}
+
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
@@ -512,8 +515,10 @@ export default function SectionManager({ formId, show, onClose, sections: initia
                     </Button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setNewSectionOpen(true)}
+                   <button
+                     data-tour="section-manager-add"
+                     onClick={() => setNewSectionOpen(true)}
+
                     className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-400 dark:text-gray-500 hover:border-primary hover:text-primary transition-colors"
                   >
                     <Plus className="w-4 h-4" />
@@ -532,7 +537,7 @@ export default function SectionManager({ formId, show, onClose, sections: initia
             </DndContext>
 
             {selectedIds.length > 0 && (
-              <div className="shrink-0 border-t border-gray-100 dark:border-gray-700 px-5 py-3 bg-gray-50/80 dark:bg-ink-800/60 flex items-center gap-2">
+              <div data-tour="section-manager-move" className="shrink-0 border-t border-gray-100 dark:border-gray-700 px-5 py-3 bg-gray-50/80 dark:bg-ink-800/60 flex items-center gap-2">
                 <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 shrink-0">
                   {t('sectionManager.selectedCount', { count: selectedIds.length })}
                 </span>

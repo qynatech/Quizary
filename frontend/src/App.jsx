@@ -4,8 +4,11 @@ import { Suspense, lazy } from 'react'
 import { PreferencesProvider } from './context/PreferencesContext.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { useAuth } from './hooks/useAuth'
+import { getAuthenticatedPath } from './lib/authRedirect'
 import { ToastProvider } from './context/ToastContext.jsx'
+import { TourProvider } from './features/tour/TourContext'
 import DashboardLayout from './components/layout/DashboardLayout'
+import AdminLayout from './components/layout/AdminLayout'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import VerifyOtp from './pages/auth/VerifyOtp'
@@ -22,6 +25,9 @@ import Analytics from './pages/results/Analytics'
 import Profile from './pages/profile/Profile'
 import MySubmissions from './pages/profile/MySubmissions'
 import Settings from './pages/profile/Settings'
+import Admin from './pages/admin/Admin'
+import AdminOverview from './pages/admin/AdminOverview'
+import AdminSettings from './pages/admin/AdminSettings'
 
 // ponytail: public routes di-lazy — responden /q & /s tidak unduh 1.6MB dashboard/builder
 const FormLanding = lazy(() => import('./pages/public/FormLanding'))
@@ -47,6 +53,20 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+function AdminRoute({ children }) {
+  const { user, ready } = useAuth()
+  if (!ready) return null
+  if (user?.role !== 'admin') return <Navigate to="/" replace />
+  return children
+}
+
+function UserRoute({ children }) {
+  const { user, ready } = useAuth()
+  if (!ready) return null
+  if (user?.role === 'admin') return <Navigate to="/admin" replace />
+  return children
+}
+
 function PublicRoute({ children }) {
   const { user, ready } = useAuth()
   const location = useLocation()
@@ -54,6 +74,7 @@ function PublicRoute({ children }) {
   // /login → /q/... → /login (loop di Chrome desktop bertoken expired).
   if (!ready) return null
   if (user) {
+    if (user.role === 'admin') return <Navigate to={getAuthenticatedPath(user)} replace />
     const from = location.state?.from || new URLSearchParams(location.search).get('next')
     // cegah loop jika from masih halaman auth
     const safe = from && !from.startsWith('/login') && !from.startsWith('/register') && !from.startsWith('/otp') && !from.startsWith('/forgot-password') && !from.startsWith('/reset-password') ? from : '/'
@@ -73,7 +94,12 @@ function AppRoutes() {
       <Route path="/q/:shortCode" element={<Suspense fallback={<PublicFallback />}><FormLanding /></Suspense>} />
       <Route path="/s/:submissionId" element={<Suspense fallback={<PublicFallback />}><AnswerQuiz /></Suspense>} />
       <Route path="/s/:submissionId/result" element={<Suspense fallback={<PublicFallback />}><QuizResult /></Suspense>} />
-      <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+      <Route element={<ProtectedRoute><AdminRoute><AdminLayout /></AdminRoute></ProtectedRoute>}>
+        <Route path="/admin" element={<AdminOverview />} />
+        <Route path="/admin/users" element={<Admin />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
+      </Route>
+      <Route element={<ProtectedRoute><UserRoute><DashboardLayout /></UserRoute></ProtectedRoute>}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/forms" element={<FormList />} />
         <Route path="/forms/new" element={<FormCreate />} />
@@ -98,7 +124,9 @@ export default function App() {
         <PreferencesProvider>
           <AuthProvider>
             <ToastProvider>
-              <AppRoutes />
+              <TourProvider>
+                <AppRoutes />
+              </TourProvider>
             </ToastProvider>
           </AuthProvider>
         </PreferencesProvider>

@@ -11,6 +11,7 @@ import { Card, Button, StatusBadge, Select, PageHeader, FormSubNav, FormBackButt
 import { resolveMediaUrl, questionImageUrl, questionAudioUrl } from '../../lib/media'
 import { formatCheatReason } from '../../lib/cheatReason'
 import { useTranslation } from 'react-i18next'
+import { usePageTour } from '../../features/tour/TourContext'
 
 
 
@@ -373,6 +374,16 @@ export default function Results() {
     show: { opacity: 1, y: 0 },
   }
 
+  const tourVariant = loading ? 'loading' : data.length ? `${isQuiz ? 'quiz' : 'form'}-${selected.size ? 'selected' : 'data'}` : 'empty'
+  const tourSteps = useMemo(() => loading ? [] : [
+    { target: '[data-tour="results-export"]', title: 'Export submissions', content: 'Download the current results as an Excel file for reporting or offline review.', placement: 'bottom-end' },
+    { target: '[data-tour="results-subnav"]', title: 'Move to analytics', content: 'Switch to analytics when you need completion, score, or question-level insights.', placement: 'bottom' },
+    { target: '[data-tour="results-filters"]', title: 'Filter the response list', content: 'Filter by status and, for quizzes, sort by score to focus on the responses you care about.', placement: 'bottom' },
+    { target: data.length ? '[data-tour="results-list"]' : '[data-tour="results-empty"]', title: data.length ? 'Review each response' : 'No responses yet', content: data.length ? 'Open a row to inspect answers, status, score, and recorded violations.' : 'Share the form publicly to start collecting responses.', placement: data.length ? 'top' : 'bottom' },
+    ...(selected.size ? [{ target: '[data-tour="results-bulk"]', title: 'Manage selected responses', content: 'Update status or delete several responses together after selecting them.', placement: 'bottom' }] : []),
+  ], [loading, data.length, isQuiz, selected.size])
+  usePageTour('results', { variant: tourVariant, variantKey: tourVariant, steps: tourSteps })
+
   return (
     <div>
       <FormBackButton />
@@ -382,14 +393,16 @@ export default function Results() {
         description={t('results.submissionCount', { total: meta.total })}
         actions={
           <>
-            <Button variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExport} title={t('results.exportHint')}>{t('results.exportExcel')}</Button>
+            <Button data-tour="results-export" variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExport} title={t('results.exportHint')}>{t('results.exportExcel')}</Button>
           </>
         }
       />
 
-      <FormSubNav formId={formId} className="mt-5" />
+      <div data-tour="results-subnav">
+        <FormSubNav formId={formId} className="mt-5" />
+      </div>
 
-      <div className="flex flex-wrap gap-3 mt-6 mb-6">
+      <div data-tour="results-filters" className="flex flex-wrap gap-3 mt-6 mb-6">
         <div className="w-full sm:w-48">
           <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
             {statusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -410,7 +423,8 @@ export default function Results() {
       )}
 
       {selected.size > 0 && (
-        <div className="sticky top-2 z-30 mb-4 flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-white dark:bg-ink-900 px-4 py-3 shadow-lift">
+         <div data-tour="results-bulk" className="sticky top-2 z-30 mb-4 flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-white dark:bg-ink-900 px-4 py-3 shadow-lift">
+
           <span className="text-sm font-semibold text-ink dark:text-gray-100 shrink-0">{t('results.selectedCount', { count: selected.size })}</span>
           <div className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="hidden sm:inline-flex">{t('results.cancelSelection')}</Button>
@@ -438,15 +452,17 @@ export default function Results() {
           {[1, 2, 3, 4, 5].map((i) => <CardSkeleton key={i} />)}
         </div>
       ) : data.length === 0 ? (
-        <Card>
-          <EmptyState
+         <Card data-tour="results-empty">
+           <EmptyState
+
             icon={<ClipboardList className="w-6 h-6" />}
             title={t('results.emptyTitle')}
             description={t('results.emptyDesc')}
           />
         </Card>
-      ) : (
-        <>
+       ) : (
+         <div data-tour="results-list">
+
           <motion.div variants={containerVariants} initial="hidden" animate="show" className="hidden md:block">
             <Card padding={false}>
               <table className="w-full">
@@ -555,22 +571,23 @@ export default function Results() {
            </motion.div>
 
 
-          {!loading && data.length > 0 && (
-            <>
-              <div ref={sentinelRef} aria-hidden="true" className="h-1" />
-              {loadingMore && (
-                <div className="space-y-3 mt-4">
-                  {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
-                </div>
-              )}
-              {!hasMore && meta.total > meta.per_page && (
-                <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-                  {t('results.allLoaded', { count: meta.total })}
-                </p>
-              )}
-            </>
-          )}
-        </>
+           {!loading && data.length > 0 && (
+             <>
+               <div ref={sentinelRef} aria-hidden="true" className="h-1" />
+               {loadingMore && (
+                 <div className="space-y-3 mt-4">
+                   {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
+                 </div>
+               )}
+               {!hasMore && meta.total > meta.per_page && (
+                 <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
+                   {t('results.allLoaded', { count: meta.total })}
+                 </p>
+               )}
+             </>
+           )}
+         </div>
+
       )}
 
       <AnimatePresence>

@@ -8,6 +8,7 @@ import { useToast } from '../../hooks/useToast'
 import { Card, Button, Input, PageHeader } from '../../components/ui'
 import ChangePasswordModal from './ChangePasswordModal'
 import { resolveMediaUrl } from '../../lib/media'
+import { usePageTour } from '../../features/tour/TourContext'
 
 export default function Profile() {
   const { user, updateUser } = useAuth()
@@ -20,6 +21,15 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false)
   const [openPassword, setOpenPassword] = useState(false)
   const fileRef = useRef(null)
+
+  usePageTour('profile', {
+    variant: 'default',
+    steps: [
+      { target: '[data-tour="profile-avatar"]', title: 'Make your profile yours', content: 'Upload a photo so teammates and respondents recognize you.', placement: 'right' },
+      { target: '[data-tour="profile-details"]', title: 'Update your details', content: 'Keep your display name current. Your email is managed from your account security settings.', placement: 'left' },
+      { target: '[data-tour="profile-security"]', title: 'Secure your account', content: 'Open the password flow here, then save your profile changes when you are done.', placement: 'top' },
+    ],
+  })
 
   useEffect(() => {
     if (user) {
@@ -81,8 +91,8 @@ export default function Profile() {
       />
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
-        <Card className="p-6 md:p-8">
-          <div className="flex flex-col items-center mb-8">
+        <Card data-tour="profile-details" className="p-6 md:p-8">
+          <div data-tour="profile-avatar" className="flex flex-col items-center mb-8">
             <div className="relative mb-4">
               <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 dark:bg-ink-800 border-4 border-white dark:border-ink-800 shadow-lift">
                 {avatarPreview ? (
@@ -105,8 +115,10 @@ export default function Profile() {
             {avatar && (
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleUploadAvatar} loading={uploading}>{t('profile.saveAvatar')}</Button>
-                <Button
-                  variant="ghost"
+             <Button
+               data-tour="profile-security"
+               variant="ghost"
+
                   size="sm"
                   onClick={() => { setAvatar(null); setAvatarPreview(user?.avatar || null) }}
                 >

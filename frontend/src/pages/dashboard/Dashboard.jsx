@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, Eye, ClipboardList, HelpCircle, Send, Users, TrendingUp } from 'lucide-react'
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import api from '../../api/client'
 import { useAuth } from '../../hooks/useAuth'
 import { Card, Button, StatusBadge, CardSkeleton, SpotlightCard, AuroraBg, RichText } from '../../components/ui'
+import { usePageTour } from '../../features/tour/TourContext'
 
 export default function Dashboard() {
   const { t } = useTranslation()
@@ -27,6 +28,46 @@ export default function Dashboard() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
+
+  const tourSteps = useMemo(() => loading ? [] : [
+    {
+      target: '[data-tour="dashboard-welcome"]',
+      title: 'Your workspace at a glance',
+      content: 'Use this space to see your activity and jump back into your latest work.',
+      placement: 'bottom',
+    },
+    {
+      target: '[data-tour="dashboard-actions"]',
+      title: 'Create or review forms',
+      content: 'Create a new form or open your complete form library from here.',
+      placement: 'bottom-end',
+    },
+     {
+       target: '[data-tour="dashboard-stats"]',
+       title: 'Track important numbers',
+       content: 'See totals for forms, quizzes, submissions, and respondents in one compact view.',
+       placement: 'bottom',
+     },
+     {
+       target: '[data-tour="dashboard-trend"]',
+       title: 'Watch submission trends',
+       content: 'Use this chart to spot which recent forms are receiving the most responses.',
+       placement: 'right',
+     },
+     {
+       target: '[data-tour="dashboard-recent"]',
+
+      title: 'Jump back into recent work',
+      content: 'Open a recent form to manage questions, share it, or review its results.',
+      placement: 'right',
+    },
+  ], [loading])
+
+  usePageTour('dashboard', {
+    variant: loading ? 'loading' : 'ready',
+    variantKey: loading ? 'loading' : 'ready',
+    steps: tourSteps,
+  })
 
   if (loading) {
     return (
@@ -58,6 +99,7 @@ export default function Dashboard() {
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
+        data-tour="dashboard-welcome"
         className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-500 via-primary to-primary-800 p-6 md:p-8 text-white shadow-lift"
       >
         <AuroraBg base="#ffffff" className="opacity-30" />
@@ -69,18 +111,19 @@ export default function Dashboard() {
             </h1>
             <p className="text-white/75 text-sm mt-1.5">{t('dashboard.subtitle')}</p>
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div data-tour="dashboard-actions" className="flex gap-2 shrink-0">
             <Button variant="secondary" onClick={() => navigate('/forms')} icon={<Eye className="w-4 h-4" />}>
               {t('dashboard.allForms')}
             </Button>
-            <Button onClick={() => navigate('/forms/new')} style={{ backgroundImage: 'none', backgroundColor: '#fff', color: '#6C5CE7' }} className="hover:bg-white/90" icon={<Plus className="w-4 h-4" />}>
-              {t('dashboard.newForm')}
-            </Button>
+             <Button onClick={() => navigate('/forms/new')} style={{ backgroundImage: 'none', backgroundColor: '#fff', color: '#6C5CE7' }} className="hover:bg-white/90" icon={<Plus className="w-4 h-4" />}>
+               {t('dashboard.newForm')}
+             </Button>
+
           </div>
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+      <div data-tour="dashboard-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         {STATS.map((item, i) => (
           <motion.div
             key={item.key}
@@ -109,7 +152,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-          <Card className="h-full">
+          <Card data-tour="dashboard-recent" className="h-full">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-display font-semibold text-ink dark:text-gray-100">{t('dashboard.recentForms')}</h2>
               <Link to="/forms" className="text-sm font-medium text-primary hover:text-primary-600 transition-colors">
@@ -155,8 +198,9 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <Card className="h-full">
-            <div className="flex items-center gap-2 mb-5">
+           <Card data-tour="dashboard-trend" className="h-full">
+             <div className="flex items-center gap-2 mb-5">
+
               <TrendingUp className="w-4 h-4 text-primary" />
               <h2 className="font-display font-semibold text-ink dark:text-gray-100">{t('dashboard.submissionTrend')}</h2>
             </div>

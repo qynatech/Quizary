@@ -52,8 +52,10 @@ function AiFab({ navHidden }) {
     <button
       type="button"
       onClick={() => navigate('/forms/ai')}
-      title={t('forms.aiFab')}
-      aria-label={t('forms.aiFab')}
+       title={t('forms.aiFab')}
+       aria-label={t('forms.aiFab')}
+       data-tour="forms-ai"
+
       className={`group fixed right-6 z-40 w-14 h-14 rounded-[18px] rounded-br-[6px] bg-primary text-white flex items-center justify-center
         shadow-[0_8px_24px_-10px_rgba(108,92,231,0.55)] hover:shadow-[0_14px_36px_-10px_rgba(108,92,231,0.70),0_0_32px_rgba(139,124,246,0.45)]
         hover:bg-primary-600 hover:scale-[1.06] active:scale-[0.96]

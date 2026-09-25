@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
+import { Input } from './Input'
 
-export function ConfirmModal({ show, title, message, onConfirm, onCancel, loading, confirmText = 'Delete', cancelText = 'Cancel', variant = 'danger' }) {
+export function ConfirmModal({ show, title, message, onConfirm, onCancel, loading, confirmText = 'Delete', cancelText = 'Cancel', variant = 'danger', inputLabel, inputPlaceholder, inputValue = '', inputExpected = '', onInputChange }) {
   return (
     <AnimatePresence>
       {show && (
@@ -19,7 +20,8 @@ export function ConfirmModal({ show, title, message, onConfirm, onCancel, loadin
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-display text-lg font-bold text-ink dark:text-gray-100 mb-2">{title}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{message}</p>
+            <p className={`text-sm text-gray-500 dark:text-gray-400 ${inputLabel ? 'mb-4' : 'mb-6'}`}>{message}</p>
+            {inputLabel && <Input className="mb-4" label={inputLabel} placeholder={inputPlaceholder} value={inputValue} onChange={onInputChange} autoFocus />}
             <div className="flex gap-3 justify-end">
               <button
                 onClick={onCancel}
@@ -29,8 +31,8 @@ export function ConfirmModal({ show, title, message, onConfirm, onCancel, loadin
                 {cancelText}
               </button>
               <button
-                onClick={onConfirm}
-                disabled={loading}
+                onClick={() => onConfirm(inputValue)}
+                disabled={loading || (inputExpected && inputValue !== inputExpected)}
                 className={`inline-flex items-center gap-2 text-sm font-semibold h-10 px-4 rounded-xl text-white transition-all duration-150
                   active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed
                   ${variant === 'danger' ? 'bg-incorrect hover:bg-red-600' : 'bg-primary hover:bg-primary-600'}`}

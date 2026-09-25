@@ -15,6 +15,7 @@ import api from '../../api/client'
 import { useToast } from '../../hooks/useToast'
 import { useTranslation } from 'react-i18next'
 import { useHoldSelect } from '../../hooks/useHoldSelect'
+import { usePageTour } from '../../features/tour/TourContext'
 import { isAudioUrl, resolveMediaUrl } from '../../lib/media'
 import { stripTags } from '../../lib/sanitize'
 import { Button, Input, Select, Toggle, Card, Badge, ConfirmModal, PageHeader, FormSubNav, FormBackButton, EmptyState, CardSkeleton, RichTextEditor, RichText, AnswerKeyEditor } from '../../components/ui'
@@ -382,17 +383,22 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
     return base + (((total - 1) < (100 % total)) ? 1 : 0)
   })()
 
-  return (
-    <div className="space-y-5">
-      <Select label={t('questionBuilder.questionType')} value={form.type} onChange={(e) => handleTypeChange(e.target.value)} error={ferr('type')}>
-        {TYPE_OPTIONS.map((optType) => <option key={optType} value={optType}>{typeLabels[optType]}</option>)}
-      </Select>
-      {typeHints[form.type] && (
+   return (
+     <div data-tour="question-form" className="space-y-5">
+       <div data-tour="question-type">
+         <Select label={t('questionBuilder.questionType')} value={form.type} onChange={(e) => handleTypeChange(e.target.value)} error={ferr('type')}>
+
+         {TYPE_OPTIONS.map((optType) => <option key={optType} value={optType}>{typeLabels[optType]}</option>)}
+         </Select>
+       </div>
+       {typeHints[form.type] && (
+
         <p className="text-xs text-gray-400 dark:text-gray-500 -mt-3">{typeHints[form.type]}</p>
       )}
 
-      {isPassword && (
-        <div>
+       {isPassword && (
+         <div data-tour="question-password-key">
+
           <label className="field-label">{t('questionBuilder.passwordKey')}</label>
           <input
             value={form.password_keyword || ''}
@@ -407,9 +413,10 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
         </div>
       )}
 
-      {sectionsAllowed && sections?.length > 1 && (
-        <div>
-          <label className="field-label">{t('questionBuilder.sectionLabel')}</label>
+       {sectionsAllowed && sections?.length > 1 && (
+         <div data-tour="question-section">
+           <label className="field-label">{t('questionBuilder.sectionLabel')}</label>
+
           <Select
             value={form.section_id || ''}
             onChange={(e) => setForm((p) => ({ ...p, section_id: e.target.value ? parseInt(e.target.value) : null }))}
@@ -420,8 +427,9 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
         </div>
       )}
 
-      <div>
-        <label className="field-label">{t('questionBuilder.questionLabel')}</label>
+       <div data-tour="question-text">
+         <label className="field-label">{t('questionBuilder.questionLabel')}</label>
+
         <RichTextEditor
           value={form.question_text}
           onChange={(html) => setForm((p) => ({ ...p, question_text: html }))}
@@ -431,15 +439,19 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
       </div>
 
       {/* Essay/short_answer quiz: kunci jawaban sebagai chip ala opsi — tambah/hapus per kunci, join ";" hanya saat payload. */}
-      {showKeywordScoring && (
-        <AnswerKeyEditor
+       {showKeywordScoring && (
+         <div data-tour="question-answer-key">
+           <AnswerKeyEditor
+
           value={form.answer_key || ''}
           onChange={(v) => setForm((p) => ({ ...p, answer_key: v, ...(v.trim() ? { is_scored: true } : {}) }))}
           required={form.is_scored}
           error={ferr('answer_key')}
-          inputRef={answerKeyInputRef}
-        />
-      )}
+           inputRef={answerKeyInputRef}
+           />
+         </div>
+       )}
+
 
       <div className="space-y-3">
   <input
@@ -524,7 +536,8 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
 
       {/* ——— Scoring row: sama visual untuk semua tipe — points input + toggle Hitung poin (essay/short + MC/checkbox) + toggle Wajib. */}
       {isQuiz && (
-        <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+         <div data-tour="question-scoring" className="flex flex-wrap items-end gap-x-4 gap-y-3">
+
           {(showKeywordScoring || showChoiceScoring) && (
             <div className="flex-1 min-w-0 basis-40">
               {isEditing ? (
@@ -550,8 +563,9 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
             </div>
           )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 ml-auto pb-[1px] sm:h-11">
-            <label className="flex min-w-0 items-center gap-2">
-              <span className="shrink-0 text-sm text-gray-600 dark:text-gray-400">{t('questionBuilder.countPoints')}</span>
+             <label data-tour="question-count-points" className="flex min-w-0 items-center gap-2">
+               <span className="shrink-0 text-sm text-gray-600 dark:text-gray-400">{t('questionBuilder.countPoints')}</span>
+
               <Toggle
                 label={t('questionBuilder.countPoints')}
                 checked={!!form.is_scored}
@@ -564,22 +578,25 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
                 }}
               />
             </label>
-            <label className="flex min-w-0 items-center gap-2">
-              <span className="shrink-0 text-sm text-gray-600 dark:text-gray-400">{t('questionBuilder.required')}</span>
+             <label data-tour="question-required" className="flex min-w-0 items-center gap-2">
+               <span className="shrink-0 text-sm text-gray-600 dark:text-gray-400">{t('questionBuilder.required')}</span>
+
               <Toggle label={t('questionBuilder.required')} checked={form.is_required} onChange={(v) => setForm((p) => ({ ...p, is_required: v }))} />
             </label>
           </div>
         </div>
       )}
-      {!isQuiz && (
-        <div className="flex items-center gap-2.5">
+       {!isQuiz && (
+         <div data-tour="question-required" className="flex items-center gap-2.5">
+
           <span className="text-sm text-gray-600 dark:text-gray-400">{t('questionBuilder.required')}</span>
           <Toggle label={t('questionBuilder.required')} checked={form.is_required} onChange={(v) => setForm((p) => ({ ...p, is_required: v }))} />
         </div>
       )}
 
-      {needsOptions && (
-        <div className={`${optionsErr ? 'border border-incorrect rounded-xl p-3' : ''}`}>
+       {needsOptions && (
+         <div data-tour="question-options" className={`${optionsErr ? 'border border-incorrect rounded-xl p-3' : ''}`}>
+
           <div className="flex items-center justify-between mb-2.5">
             <label className="field-label !mb-0">
               {t('questionBuilder.answerOptions')}
@@ -740,8 +757,9 @@ function QuestionForm({ initial, onSave, onCancel, loading, isQuiz, errors, ques
         </div>
       )}
 
-      <div className="flex gap-3 pt-2">
-        <Button onClick={() => onSave({ ...form, options: form.options })} disabled={!canSave || loading} loading={loading} className="flex-1" size="md">
+       <div className="flex gap-3 pt-2">
+         <Button data-tour="question-save" onClick={() => onSave({ ...form, options: form.options })} disabled={!canSave || loading} loading={loading} className="flex-1" size="md">
+
           {loading ? t('questionBuilder.save') : t('questionBuilder.save')}
         </Button>
         <Button onClick={onCancel} variant="secondary" size="md">{t('questionBuilder.cancel')}</Button>
@@ -764,8 +782,9 @@ const QuestionCard = memo(function QuestionCard({ question, index, onDelete, onD
     datetime: t('questionBuilder.typeDatetime'),
     file_upload: t('questionBuilder.typeFileUpload'),
   }
-  return (
-    <Card className={`transition-all ${isDragging ? 'shadow-lift border-primary/40 opacity-60' : selected ? '!border-primary ring-2 ring-primary/30 bg-primary-50/40 dark:bg-primary-900/15' : 'hover:border-gray-400 dark:hover:border-gray-700'} ${groupId ? 'border-l-4 !border-l-primary/50' : ''}`}>
+   return (
+     <Card data-tour="question-card" className={`transition-all ${isDragging ? 'shadow-lift border-primary/40 opacity-60' : selected ? '!border-primary ring-2 ring-primary/30 bg-primary-50/40 dark:bg-primary-900/15' : 'hover:border-gray-400 dark:hover:border-gray-700'} ${groupId ? 'border-l-4 !border-l-primary/50' : ''}`}>
+
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-3 min-w-0">
           {/* Mobile: checkbox tersembunyi → bubble nomor jadi indikator seleksi */}
@@ -1105,7 +1124,8 @@ const SortableGroupCard = memo(function SortableGroupCard({ groupId, questions: 
                         {isAddOver && <span className="text-xs text-primary ml-2">{t('questionBuilder.dropHereToAdd')}</span>}
                       </button>
                     ) : (
-                      <div className="space-y-3">
+       <div data-tour="question-media" className="space-y-3">
+
                         <div className="flex items-center gap-2">
                           <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search questions..." className="input-field h-8 text-sm flex-1" autoFocus />
                           <button onClick={() => { setShowPicker(false); setPickIds([]); setFilter('') }} className="p-1.5 rounded-lg text-gray-400 hover:text-ink"><X className="w-4 h-4" /></button>
@@ -1401,6 +1421,44 @@ export default function QuestionBuilder() {
   // Import DOCX wajib pilih section tujuan hanya bila section >1.
   const importNeedsSection = sectionsAllowed && sections.length > 1
   const scoringMode = form?.scoring_mode || 'auto'
+  const tourVariant = loading ? 'loading' : form ? [
+    form.type,
+    scoringMode,
+    questions.length ? 'questions' : 'empty',
+     showForm ? 'editing' : 'browse',
+     showSectionManager ? 'sections-open' : 'sections-closed',
+     selectedIds.length ? 'selected' : 'idle',
+
+  ].join('-') : 'loading'
+  const tourSteps = !form || loading ? [] : [
+    { target: '[data-tour="builder-add"]', title: 'Add a question', content: 'Create a question manually, then choose the answer type and validation rules.', placement: 'auto' },
+    { target: '[data-tour="builder-actions"]', title: 'Import or export questions', content: 'Open the actions menu to import a DOCX question set or export the current questions.', placement: 'auto' },
+    { target: '[data-tour="builder-sections"]', title: 'Organize questions', content: 'Open Manage sections to create, rename, reorder, delete, collapse, or move questions between sections.', placement: 'auto' },
+    { target: '[data-tour="builder-subnav"]', title: 'Move between form areas', content: 'Switch to results or analytics without leaving this form workspace.', placement: 'auto' },
+    { target: questions.length ? '[data-tour="builder-list"]' : '[data-tour="builder-empty"]', title: questions.length ? 'Manage your question list' : 'Add your first question', content: questions.length ? 'Reorder, group, edit, duplicate, or remove questions from this list.' : 'A form starts with a question, so add the first one to begin building.', placement: 'auto' },
+    ...(questions.length ? [{ target: '[data-tour="question-card"]', title: 'Question cards', content: 'Each card shows the prompt, media, type, required state, and quick actions for edit, duplicate, delete, move, and selection.', placement: 'auto' }] : []),
+    ...(showForm ? [
+      { target: '[data-tour="builder-editor"]', title: 'Question editor', content: 'Add or edit a question here, then configure each field below before saving.', placement: 'auto' },
+      { target: '[data-tour="question-type"]', title: 'Choose question type', content: 'Type controls which answer fields and validation options appear.', placement: 'auto' },
+      { target: '[data-tour="question-text"]', title: 'Write the question', content: 'Use the rich text editor for the question prompt and formatting.', placement: 'auto' },
+      ...(sectionsAllowed && sections.length > 1 ? [{ target: '[data-tour="question-section"]', title: 'Choose a section', content: 'Place this question into the section that best matches the respondent flow.', placement: 'auto' }] : []),
+      ...(form.type === 'quiz' ? [{ target: '[data-tour="question-answer-key"]', title: 'Set the answer key', content: 'For scored text questions, add accepted answer keys so responses can be graded automatically.', placement: 'auto' }] : []),
+      { target: '[data-tour="question-media"]', title: 'Add image or audio', content: 'Attach supporting media to the question. Remove it from the same control when no longer needed.', placement: 'auto' },
+      { target: '[data-tour="question-scoring"]', title: 'Control quiz scoring', content: 'Set the question points, whether points are counted, and whether respondents must answer.', placement: 'auto' },
+      { target: '[data-tour="question-count-points"]', title: 'Count points', content: 'Turn this on when respondents should earn points for a correct answer.', placement: 'auto' },
+      { target: '[data-tour="question-required"]', title: 'Control required responses', content: 'Keep this on when respondents must answer the question before submitting.', placement: 'auto' },
+      { target: '[data-tour="question-options"]', title: 'Build answer options', content: 'For choice and dropdown questions, add options, mark correct answers, and attach option media.', placement: 'auto' },
+      { target: '[data-tour="question-save"]', title: 'Save the question', content: 'Save the question after finishing the prompt, options, media, and validation settings.', placement: 'auto' },
+    ] : []),
+    ...(showSectionManager ? [
+      { target: '[data-tour="section-manager-panel"]', title: 'Manage sections', content: 'This sidebar is the control center for creating and organizing question sections.', placement: 'auto' },
+      { target: '[data-tour="section-manager-section"]', title: 'Section controls', content: 'Drag to reorder, collapse, rename, delete, select all questions, or select individual questions inside each section.', placement: 'auto' },
+      { target: '[data-tour="section-manager-add"]', title: 'Add a section', content: 'Create a new section, then move selected questions into it from the bottom bar.', placement: 'auto' },
+      { target: '[data-tour="section-manager-move"]', title: 'Move selected questions', content: 'After selecting questions, choose a destination section and move them together.', placement: 'auto' },
+    ] : []),
+    ...(selectedIds.length ? [{ target: '[data-tour="builder-bulk"]', title: 'Edit several questions', content: 'Selected questions can be grouped, ungrouped, or deleted together.', placement: 'auto' }] : []),
+  ]
+  usePageTour('question-builder', { variant: tourVariant, variantKey: tourVariant, steps: tourSteps })
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -2113,12 +2171,15 @@ export default function QuestionBuilder() {
           <>
             <input ref={docxRef} type="file" accept=".docx" onChange={handleDocxImport} className="hidden" />
             {sectionsAllowed && (
-              <Button variant="secondary" onClick={() => setShowSectionManager(true)} icon={<Layers className="w-4 h-4" />}>
+               <Button data-tour="builder-sections" variant="secondary" onClick={() => setShowSectionManager(true)} icon={<Layers className="w-4 h-4" />}>
+
                 <span className="hidden sm:inline">{t('questionBuilder.manageSections')}</span>
               </Button>
             )}
-            <div className="relative flex items-center shrink-0 self-start sm:self-auto" ref={actionsRef}>
-              <Button onClick={openNewQuestion} icon={<Plus className="w-4 h-4" />} className="rounded-r-none">
+             <div data-tour="builder-actions" className="relative flex items-center shrink-0 self-start sm:self-auto" ref={actionsRef}>
+
+               <Button data-tour="builder-add" onClick={openNewQuestion} icon={<Plus className="w-4 h-4" />} className="rounded-r-none">
+
                 <span className="hidden sm:inline">{t('questionBuilder.addQuestion')}</span>
               </Button>
               <Button
@@ -2138,15 +2199,19 @@ export default function QuestionBuilder() {
                     transition={{ duration: 0.12 }}
                     className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] origin-top-right bg-white dark:bg-ink-900 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-lift py-1.5 z-50"
                   >
-                    <button
-                      onClick={() => { setActionsOpen(false); if (docxRef.current) docxRef.current.value = ''; setShowImportModal(true) }}
+                     <button
+                       data-tour="builder-import"
+                       onClick={() => { setActionsOpen(false); if (docxRef.current) docxRef.current.value = ''; setShowImportModal(true) }}
+
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-ink-800 transition-colors text-left"
                     >
                       <Upload className="w-4 h-4 shrink-0 text-gray-400" />
                       {t('questionBuilder.importDocx')}
                     </button>
-                    <button
-                      onClick={handleExportDocx}
+                     <button
+                       data-tour="builder-export"
+                       onClick={handleExportDocx}
+
                       disabled={exporting || !questions.length}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-ink-800 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -2158,18 +2223,21 @@ export default function QuestionBuilder() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
-          </>
-        }
+             </div>
+           </>
+         }
+
       />
 
-      <FormSubNav
-        formId={formId}
-        className="mt-5"
-        hasUnsavedChanges={formDirty}
-        onSave={() => handleSaveQuestion(formDataRef.current)}
-        saving={saveLoading}
-      />
+      <div data-tour="builder-subnav">
+        <FormSubNav
+          formId={formId}
+          className="mt-5"
+          hasUnsavedChanges={formDirty}
+          onSave={() => handleSaveQuestion(formDataRef.current)}
+          saving={saveLoading}
+        />
+      </div>
 
       <SectionManager
         formId={formId}
@@ -2210,8 +2278,9 @@ export default function QuestionBuilder() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden mt-6"
           >
-            <Card>
-              <div className="flex items-center gap-2 mb-5">
+             <Card data-tour="builder-editor">
+               <div className="flex items-center gap-2 mb-5">
+
                 <span className="w-6 h-6 rounded-full bg-primary-50 text-primary text-xs font-bold flex items-center justify-center">
                   <Plus className="w-3.5 h-3.5" />
                 </span>
@@ -2238,8 +2307,9 @@ export default function QuestionBuilder() {
       {/* Empty state generik hanya kalau memang tidak ada section utk ditampilkan;
           kalau ada section, biarkan list tampil dengan hint "belum ada soal". */}
       {questions.length === 0 && !showForm && (!sectionsAllowed || sections.length === 0) ? (
-        <Card className="mt-6">
-          <EmptyState
+         <Card data-tour="builder-empty" className="mt-6">
+           <EmptyState
+
             icon={<HelpCircle className="w-6 h-6" />}
             title={t('questionBuilder.emptyTitle')}
             description={t('questionBuilder.emptyDesc')}
@@ -2257,7 +2327,9 @@ export default function QuestionBuilder() {
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              className="sticky top-0 z-20 mt-6 bg-white dark:bg-ink-900 border border-gray-200 dark:border-gray-700 shadow-lift rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2 sm:gap-3"
+               data-tour="builder-bulk"
+               className="sticky top-0 z-20 mt-6 bg-white dark:bg-ink-900 border border-gray-200 dark:border-gray-700 shadow-lift rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2 sm:gap-3"
+
             >
               <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none shrink-0">
                 <input
@@ -2333,7 +2405,7 @@ export default function QuestionBuilder() {
             onDragCancel={handleDragCancel}
           >
             <SortableContext items={blockIds} strategy={verticalListSortingStrategy}>
-              <div className="space-y-8 mt-6">
+              <div data-tour="builder-list" className="space-y-8 mt-6">
                 {sectionsAllowed ? (
                   <>
                     {sections.map((sec) => {

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import api from '../../api/client'
 import { useInfiniteScroll } from '../../hooks/useInfiniteScroll'
 import { Card, Button, StatusBadge, PageHeader, EmptyState, CardSkeleton, RichText } from '../../components/ui'
+import { usePageTour } from '../../features/tour/TourContext'
 
 const PER_PAGE = 20
 
@@ -68,21 +69,30 @@ export default function MySubmissions() {
 
   const hasMore = !loading && data.length < total
   const sentinelRef = useInfiniteScroll({ loading, loadingMore, hasMore, onLoadMore: loadMore })
+  const tourVariant = loading ? 'loading' : data.length ? 'data' : 'empty'
+  const tourSteps = loading ? [] : [
+    { target: '[data-tour="history-header"]', title: 'Your response history', content: 'Review submissions you have completed across forms and quizzes.', placement: 'bottom' },
+    { target: data.length ? '[data-tour="history-list"]' : '[data-tour="history-empty"]', title: data.length ? 'Open any response' : 'No history yet', content: data.length ? 'Open a response to review its status, score, and submitted date.' : 'Your completed forms and quizzes will appear here.', placement: data.length ? 'top' : 'bottom' },
+  ]
+  usePageTour('my-submissions', { variant: tourVariant, variantKey: tourVariant, steps: tourSteps })
 
   return (
     <div className="max-w-3xl mx-auto">
-      <PageHeader
-        eyebrow={t('mySubs.eyebrow')}
-        title={t('mySubs.title')}
-        description={t('mySubs.description')}
-      />
+      <div data-tour="history-header">
+        <PageHeader
+          eyebrow={t('mySubs.eyebrow')}
+          title={t('mySubs.title')}
+          description={t('mySubs.description')}
+
+        />
+      </div>
 
       {loading ? (
         <div className="space-y-4 mt-6">
           {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
         </div>
       ) : data.length === 0 ? (
-        <Card className="mt-6">
+        <Card data-tour="history-empty" className="mt-6">
           <EmptyState
             icon={<ClipboardList className="w-6 h-6" />}
             title={t('mySubs.empty')}
@@ -95,8 +105,10 @@ export default function MySubmissions() {
           />
         </Card>
       ) : (
-        <motion.div
-          initial="hidden"
+         <motion.div
+           data-tour="history-list"
+           initial="hidden"
+
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
           className="space-y-3 mt-6"

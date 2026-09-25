@@ -9,6 +9,7 @@ import { useHoldSelect } from '../../hooks/useHoldSelect'
 import { stripTags } from '../../lib/sanitize'
 import { resolveMediaUrl } from '../../lib/media'
 import { Button, Input, Card, PageHeader, EmptyState, CardSkeleton, SpotlightCard, RichText, CategoryManager, ConfirmModal } from '../../components/ui'
+import { usePageTour } from '../../features/tour/TourContext'
 
 const TABS = ['All', 'Draft', 'Published', 'Closed']
 
@@ -377,6 +378,48 @@ export default function FormList() {
   const selectedForms = useMemo(() => filtered.filter((f) => selected.has(f.id)), [filtered, selected])
   const allSelected = filtered.length > 0 && filtered.every((f) => selected.has(f.id))
 
+  const tourVariant = loading ? 'loading' : filtered.length ? selectionMode ? 'data-selected' : 'data' : 'empty'
+  const tourSteps = useMemo(() => loading ? [] : [
+    {
+      target: '[data-tour="forms-create"]',
+      title: 'Create your next form',
+      content: 'Start from the form library, then choose whether to build a form or a quiz.',
+      placement: 'bottom-end',
+    },
+     {
+       target: '[data-tour="forms-search"]',
+       title: 'Find and organize',
+       content: 'Search, filter by status, or switch categories to narrow the list quickly.',
+       placement: 'bottom',
+     },
+     {
+       target: '[data-tour="forms-ai"]',
+       title: 'Create with AI',
+       content: 'Use the AI button to generate a form or quiz draft from a prompt or uploaded source.',
+       placement: 'left',
+     },
+
+    {
+      target: '[data-tour="forms-categories"]',
+      title: 'Use categories',
+      content: 'Categories keep a growing library easy to scan. You can create and manage them here.',
+      placement: 'right',
+    },
+    {
+      target: filtered.length ? '[data-tour="forms-list"]' : '[data-tour="forms-empty"]',
+      title: filtered.length ? 'Your form library' : 'Start your library',
+      content: filtered.length ? 'Open a card to edit its questions, share it, or review its results.' : 'Create your first form or ask AI to generate a draft for you.',
+      placement: filtered.length ? 'top' : 'bottom',
+    },
+    ...(selectionMode ? [{
+      target: '[data-tour="forms-bulk"]',
+      title: 'Work on several forms',
+      content: 'Selected forms can be moved to another category or deleted together.',
+      placement: 'bottom',
+    }] : []),
+  ], [loading, filtered.length, selectionMode])
+  usePageTour('forms', { variant: tourVariant, variantKey: tourVariant, steps: tourSteps })
+
   const toggleSelect = (id) => {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -419,11 +462,14 @@ export default function FormList() {
         eyebrow={t('forms.eyebrow')}
         title={t('forms.title')}
         description={t('forms.description')}
-        actions={
-          <Button onClick={() => navigate('/forms/new')} icon={<Plus className="w-4 h-4" />}>
-            {t('forms.createNew')}
-          </Button>
-        }
+         actions={
+           <>
+             <Button data-tour="forms-create" onClick={() => navigate('/forms/new')} icon={<Plus className="w-4 h-4" />}>
+               {t('forms.createNew')}
+             </Button>
+           </>
+         }
+
       />
 
       {/* top controls */}
@@ -432,7 +478,9 @@ export default function FormList() {
           <div className="relative w-full sm:max-w-xs">
             <Input
               placeholder={t('forms.search')}
-              value={search}
+               data-tour="forms-search"
+               value={search}
+
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10 h-10 rounded-full"
               aria-label="Search forms"
@@ -452,7 +500,8 @@ export default function FormList() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-gradient-to-br from-primary-50/70 via-white to-white dark:from-ink-800/40 dark:via-ink-900 dark:to-ink-900 border border-primary-100/60 dark:border-gray-800 p-3 sm:p-4">
+         <div data-tour="forms-categories" className="rounded-2xl bg-gradient-to-br from-primary-50/70 via-white to-white dark:from-ink-800/40 dark:via-ink-900 dark:to-ink-900 border border-primary-100/60 dark:border-gray-800 p-3 sm:p-4">
+
           <div className="flex items-center gap-2 mb-3">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary-700 dark:text-primary-300">
                <FolderOpen className={`w-4 h-4 ${activeCategory===null ? 'text-dark dark:text-primary' : 'text-gray-400 group-hover:text-primary'}`} />{t('forms.categoryLabel')}
@@ -499,7 +548,8 @@ export default function FormList() {
 
       {/* bulk action bar — sticky ala Results, muncul saat ada yang dipilih */}
       {selectionMode && (
-        <div className="sticky top-2 z-30 mb-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-white dark:bg-ink-900 px-4 py-3 shadow-lift">
+         <div data-tour="forms-bulk" className="sticky top-2 z-30 mb-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-white dark:bg-ink-900 px-4 py-3 shadow-lift">
+
           <input
             type="checkbox"
             checked={allSelected}
@@ -552,8 +602,9 @@ export default function FormList() {
           {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <Card>
-          <EmptyState
+         <Card data-tour="forms-empty">
+           <EmptyState
+
             icon={<ClipboardList className="w-6 h-6" />}
             title={search.trim() ? t('forms.noMatch') : activeCategory ? t('forms.emptyCategory') : t('forms.noForms')}
             description={search.trim() ? t('forms.noMatchDesc') : activeCategory ? t('forms.emptyCategoryDesc') : t('forms.noFormsDesc')}
@@ -568,7 +619,8 @@ export default function FormList() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 py-1 -my-1">
+           <div data-tour="forms-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 py-1 -my-1">
+
             {filtered.map((form, i) => (
               <FormCardItem
                 key={form.id}

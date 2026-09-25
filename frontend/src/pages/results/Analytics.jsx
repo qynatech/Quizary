@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from 'react'
+import { useState, useEffect, useMemo, memo } from 'react'
 import { useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Users, Trophy, TrendingUp, TrendingDown, ClipboardList, ChevronDown, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
@@ -6,6 +6,7 @@ import api from '../../api/client'
 import { Card, PageHeader, FormSubNav, FormBackButton, CardSkeleton, RichText } from '../../components/ui'
 import { stripTags, resolveRichHtml } from '../../lib/sanitize'
 import { useTranslation } from 'react-i18next'
+import { usePageTour } from '../../features/tour/TourContext'
 
 function StatCard({ label, value, icon: Icon, tint, delay }) {
   return (
@@ -368,6 +369,14 @@ export default function Analytics() {
       .finally(() => setLoading(false))
   }, [formId])
 
+  const tourVariant = loading || !data ? 'loading' : data.type === 'form' ? 'form' : 'quiz'
+  const tourSteps = useMemo(() => !data || loading ? [] : [
+    { target: '[data-tour="analytics-header"]', title: 'Understand your responses', content: 'Analytics turns submissions into a quick view of participation, completion, and answer patterns.', placement: 'bottom' },
+    { target: '[data-tour="analytics-subnav"]', title: 'Move between insights and results', content: 'Return to results when you need to inspect individual answers instead of aggregate data.', placement: 'bottom' },
+    { target: '[data-tour="analytics-content"]', title: data.type === 'form' ? 'Review completion by question' : 'Compare quiz performance', content: data.type === 'form' ? 'Expand each question to see completion and response samples.' : 'Compare accuracy, score ranges, and the easiest or hardest questions.', placement: 'top' },
+  ], [data, loading])
+  usePageTour('analytics', { variant: tourVariant, variantKey: tourVariant, steps: tourSteps })
+
   if (loading) {
     return (
       <div>
@@ -401,15 +410,21 @@ export default function Analytics() {
   return (
     <div>
       <FormBackButton />
-      <PageHeader
-        eyebrow={t('analytics.insights')}
-        title={t('analytics.title')}
-        description={description}
-      />
+      <div data-tour="analytics-header">
+        <PageHeader
+          eyebrow={t('analytics.insights')}
+          title={t('analytics.title')}
+          description={description}
+        />
+      </div>
 
-      <FormSubNav formId={formId} className="mt-5" />
+      <div data-tour="analytics-subnav">
+        <FormSubNav formId={formId} className="mt-5" />
+      </div>
 
-      {isQuiz ? <QuizAnalytics data={data} /> : <FormAnalytics data={data} />}
+      <div data-tour="analytics-content">
+        {isQuiz ? <QuizAnalytics data={data} /> : <FormAnalytics data={data} />}
+      </div>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Mail, Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
+import { useRegistrationStatus } from '../../hooks/useRegistrationStatus'
 import { Button, Input, Card } from '../../components/ui'
 import { AuthShell } from '../../components/auth/AuthShell'
 
@@ -12,6 +13,7 @@ export default function Register() {
   const navigate = useNavigate()
   const location = useLocation()
   const { register } = useAuth()
+  const { registrationOpen, loading: registrationLoading } = useRegistrationStatus()
   const from = location.state?.from || new URLSearchParams(location.search).get('next') || '/'
 
   const [form, setForm] = useState({
@@ -92,6 +94,23 @@ export default function Register() {
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
     if (fieldErrors[field]) setFieldErrors((prev) => ({ ...prev, [field]: '' }))
+  }
+
+  if (registrationLoading) return null
+  if (!registrationOpen) {
+    return (
+      <AuthShell
+        eyebrow={t('auth.getStarted')}
+        title={t('auth.registrationClosedTitle')}
+        subtitle={t('auth.registrationClosedDescription')}
+        footer={<Link to="/login" className="font-semibold text-primary hover:text-primary-600 transition-colors">{t('auth.signInLink')}</Link>}
+      >
+        <Card className="p-6 md:p-7 text-center">
+          <AlertCircle className="mx-auto h-10 w-10 text-amber-500" />
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">{t('auth.registrationClosed')}</p>
+        </Card>
+      </AuthShell>
+    )
   }
 
   return (

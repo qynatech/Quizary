@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Mail, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
+import { getAuthenticatedPath } from '../../lib/authRedirect'
 import { Button, Input, Card, AppMark, AuroraBg, DotCorner } from '../../components/ui'
 
 const RESEND_SECONDS = 60
@@ -68,9 +69,9 @@ export default function VerifyOtp() {
       setError('')
       setVerifying(true)
       try {
-        await verifyOtp(email, fullCode)
+        const data = await verifyOtp(email, fullCode)
         autoSubmitRef.current = ''
-        navigate(from || '/', { replace: true })
+        navigate(getAuthenticatedPath(data.user, from), { replace: true })
       } catch (err) {
         const status = err.response?.status
         const msg = err.response?.data?.message
