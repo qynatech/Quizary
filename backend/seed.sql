@@ -1,8 +1,8 @@
 -- ============================================
 -- Quizary — Seed Data (contoh data realistik)
 -- ============================================
--- PERINGATAN: JANGAN jalankan di produksi. Semua akun di sini memakai
--- password yang sama dan mudah ditebak ("password") dengan role admin.
+-- PERINGATAN: JANGAN jalankan di produksi. Seed ini menghapus dan mengisi ulang data dev.
+-- Akun admin dev: admin@smkn10jkt.com / password
 -- Jalankan setelah migration: mysql -u faqih -p fastapi_quizary < seed.sql
 
 SET foreign_key_checks = 0;
@@ -16,14 +16,15 @@ TRUNCATE TABLE question_options;
 TRUNCATE TABLE questions;
 TRUNCATE TABLE forms;
 TRUNCATE TABLE users;
+TRUNCATE TABLE app_settings;
 SET foreign_key_checks = 1;
 
 -- ============================================
 -- 1. USERS
 -- ============================================
 INSERT INTO users (id, name, email, password, role, avatar, email_verified_at, created_at, updated_at) VALUES
-(1, 'Siti Nurhaliza', 'siti@sekolah.sch.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', NULL, NOW(), NOW(), NOW()),
-(2, 'Ahmad Rizki', 'rizki@sekolah.sch.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'avatars/rizki.png', NOW(), NOW(), NOW()),
+(1, 'Administrator', 'admin@smkn10jkt.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', NULL, NOW(), NOW(), NOW()),
+(2, 'Ahmad Rizki', 'rizki@sekolah.sch.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', 'avatars/rizki.png', NOW(), NOW(), NOW()),
 (3, 'Dewi Anjani', 'dewi@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NULL, NOW(), NOW(), NOW()),
 (4, 'Budi Santoso', 'budi@students.sch.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NULL, NOW(), NOW(), NOW()),
 (5, 'Rina Marlina', 'rina@students.sch.id', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user', NULL, NOW(), NOW(), NOW());
@@ -32,14 +33,14 @@ INSERT INTO users (id, name, email, password, role, avatar, email_verified_at, c
 -- 2. FORMS
 -- ============================================
 INSERT INTO forms (id, user_id, title, description, type, status, short_code, require_login, theme_color, banner_path, thank_you_message, timer_seconds, starts_at, ends_at, shuffle_questions, shuffle_options, submission_limit, show_in_history, reveal_score, reveal_answers, created_at, updated_at) VALUES
-(1, 1, 'Quiz Matematika - Kelas 7', 'Quiz materi aljabar dan aritmatika dasar untuk kelas 7 semester 1', 'quiz', 'published', 'MTH7A', 1, 0, '#6C5CE7', NULL, 'Terima kasih sudah mengerjakan quiz Matematika!', 1800, '2026-08-01 07:00:00', '2026-08-31 23:59:59', 1, 1, 'unlimited', 1, 1, 1, NOW(), NOW()),
-(2, 1, 'Quiz IPA - Sistem Tata Surya', 'Quiz tentang planet, bintang, dan sistem tata surya', 'quiz', 'published', 'IPA8B', 1, 1, '#EF4444', 'banners/tata-surya.png', 'Selamat! Kamu sudah menyelesaikan quiz IPA.', 1200, '2026-08-05 08:00:00', '2026-08-25 23:59:59', 1, 0, 'once', 1, 1, 1, NOW(), NOW()),
-(3, 2, 'Bahasa Inggris - Grammar', 'Latihan simple past tense dan daily routine vocabulary', 'quiz', 'draft', 'ENG9C', 1, 0, '#10B981', NULL, NULL, NULL, NULL, NULL, 0, 0, 'unlimited', 1, 1, 1, NOW(), NOW()),
-(4, 1, 'Survey Kepuasan Belajar', 'Survey untuk mengetahui tingkat kepuasan siswa terhadap proses belajar mengajar', 'form', 'published', 'SURV01', 1, 0, '#3B82F6', 'banners/survey-banner.png', 'Terima kasih atas masukannya!', NULL, '2026-07-20 00:00:00', '2026-12-31 23:59:59', 0, 0, 'unlimited', 1, 1, 1, NOW(), NOW()),
-(5, 2, 'Pendaftaran Lomba Sains', 'Formulir pendaftaran peserta lomba sains tingkat sekolah', 'form', 'published', 'SCI24', 1, 1, '#F59E0B', NULL, 'Pendaftaran berhasil! Kami akan menghubungi kamu lewat email.', NULL, '2026-07-15 00:00:00', '2026-08-20 23:59:59', 0, 0, 'once', 1, 1, 1, NOW(), NOW()),
-(6, 1, 'UTS Matematika - Semester Ganjil', 'Ujian Tengah Semester mata pelajaran Matematika kelas 7', 'quiz', 'published', 'UTSMTH', 1, 0, '#6C5CE7', NULL, 'Ujian telah selesai. Hasil akan diumumkan oleh guru pengampu.', 3600, '2026-09-10 07:00:00', '2026-09-10 09:00:00', 1, 1, 'once', 1, 1, 1, NOW(), NOW()),
-(7, 2, 'Quiz Fisika - Gerak Lurus', 'Quiz tentang GLB dan GLBB untuk kelas 8', 'quiz', 'published', 'FSK8A', 1, 1, '#3B82F6', NULL, 'Bagus! Pelajari lagi materi gerak lurus ya.', 900, '2026-08-10 10:00:00', '2026-08-30 23:59:59', 0, 1, 'unlimited', 1, 1, 1, NOW(), NOW()),
-(8, 2, 'Kuesioner Minat & Bakat', 'Pendataan minat dan bakat siswa untuk kegiatan ekstrakurikuler', 'form', 'published', 'MNSWR', 1, 0, '#F59E0B', 'banners/minat-bakat.png', 'Data kamu sudah tersimpan!', NULL, '2026-07-01 00:00:00', '2026-09-30 23:59:59', 0, 0, 'once', 1, 1, 1, NOW(), NOW());
+(1, 1, 'Quiz Matematika - Kelas 7', 'Quiz materi aljabar dan aritmatika dasar untuk kelas 7 semester 1', 'quiz', 'published', 'MTH7A', 1, '#6C5CE7', NULL, 'Terima kasih sudah mengerjakan quiz Matematika!', 1800, '2026-08-01 07:00:00', '2026-08-31 23:59:59', 1, 1, 'unlimited', 1, 1, 1, NOW(), NOW()),
+(2, 1, 'Quiz IPA - Sistem Tata Surya', 'Quiz tentang planet, bintang, dan sistem tata surya', 'quiz', 'published', 'IPA8B', 1, '#EF4444', 'banners/tata-surya.png', 'Selamat! Kamu sudah menyelesaikan quiz IPA.', 1200, '2026-08-05 08:00:00', '2026-08-25 23:59:59', 1, 0, 'once', 1, 1, 1, NOW(), NOW()),
+(3, 2, 'Bahasa Inggris - Grammar', 'Latihan simple past tense dan daily routine vocabulary', 'quiz', 'draft', 'ENG9C', 1, '#10B981', NULL, NULL, NULL, NULL, NULL, 0, 0, 'unlimited', 1, 1, 1, NOW(), NOW()),
+(4, 1, 'Survey Kepuasan Belajar', 'Survey untuk mengetahui tingkat kepuasan siswa terhadap proses belajar mengajar', 'form', 'published', 'SURV01', 1, '#3B82F6', 'banners/survey-banner.png', 'Terima kasih atas masukannya!', NULL, '2026-07-20 00:00:00', '2026-12-31 23:59:59', 0, 0, 'unlimited', 1, 1, 1, NOW(), NOW()),
+(5, 2, 'Pendaftaran Lomba Sains', 'Formulir pendaftaran peserta lomba sains tingkat sekolah', 'form', 'published', 'SCI24', 1, '#F59E0B', NULL, 'Pendaftaran berhasil! Kami akan menghubungi kamu lewat email.', NULL, '2026-07-15 00:00:00', '2026-08-20 23:59:59', 0, 0, 'once', 1, 1, 1, NOW(), NOW()),
+(6, 1, 'UTS Matematika - Semester Ganjil', 'Ujian Tengah Semester mata pelajaran Matematika kelas 7', 'quiz', 'published', 'UTSMTH', 1, '#6C5CE7', NULL, 'Ujian telah selesai. Hasil akan diumumkan oleh guru pengampu.', 3600, '2026-09-10 07:00:00', '2026-09-10 09:00:00', 1, 1, 'once', 1, 1, 1, NOW(), NOW()),
+(7, 2, 'Quiz Fisika - Gerak Lurus', 'Quiz tentang GLB dan GLBB untuk kelas 8', 'quiz', 'published', 'FSK8A', 1, '#3B82F6', NULL, 'Bagus! Pelajari lagi materi gerak lurus ya.', 900, '2026-08-10 10:00:00', '2026-08-30 23:59:59', 0, 1, 'unlimited', 1, 1, 1, NOW(), NOW()),
+(8, 2, 'Kuesioner Minat & Bakat', 'Pendataan minat dan bakat siswa untuk kegiatan ekstrakurikuler', 'form', 'published', 'MNSWR', 1, '#F59E0B', 'banners/minat-bakat.png', 'Data kamu sudah tersimpan!', NULL, '2026-07-01 00:00:00', '2026-09-30 23:59:59', 0, 0, 'once', 1, 1, 1, NOW(), NOW());
 
 -- ============================================
 -- 3. QUESTIONS

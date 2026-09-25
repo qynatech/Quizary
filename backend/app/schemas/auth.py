@@ -49,6 +49,7 @@ class UserResponse(BaseModel):
     name: str
     email: str
     role: str
+    is_active: bool = True
     # avatar is always a full URL (resolved by the router before returning)
     avatar: Optional[str] = None
 

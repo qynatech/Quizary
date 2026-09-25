@@ -95,11 +95,26 @@ alembic revision --autogenerate -m "initial"
 alembic upgrade head
 ```
 
-Atau langsung inject via seed:
+Atau langsung inject data seed dev:
 
 ```bash
 mysql -u root -p fastapi_quizary < seed.sql
 ```
+
+`seed.sql` menghapus dan mengisi ulang data dev. Akun admin hasil seed:
+
+```text
+Email: admin@smkn10jkt.com
+Password: password
+```
+
+Untuk reset development dari nol:
+
+```bash
+bash fresh.sh
+```
+
+Jangan jalankan `seed.sql` atau `fresh.sh` di production.
 
 ### 5. Jalankan Server
 

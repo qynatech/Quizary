@@ -34,6 +34,7 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.dependencies import get_current_user, security
+from app.services.settings import registration_is_open
 from app.utils import file_url
 
 logger = logging.getLogger("quizary")
@@ -47,7 +48,8 @@ def _user_response(user: User, request: Request) -> UserResponse:
         id=user.id,
         name=user.name,
         email=user.email,
-        role=user.role.value,
+        role=user.role.value if user.role else "user",
+        is_active=user.is_active,
         avatar=file_url(request, user.avatar),
     )
 
@@ -72,8 +74,15 @@ def _clear_otp(user: User) -> None:
     user.otp_attempts = None
 
 
+@router.get("/registration/status")
+def get_registration_status(db: Session = Depends(get_db)):
+    return {"registration_open": registration_is_open(db)}
+
+
 @router.post("/register", status_code=201)
 def register(request: Request, body: RegisterRequest, db: Session = Depends(get_db), _rl: None = Depends(limit_register)):
+    if not registration_is_open(db):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Pendaftaran sedang ditutup")
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     user = User(name=body.name, email=body.email, password=hash_password(body.password))
@@ -104,6 +113,8 @@ def verify_otp_code(request: Request, body: OtpVerifyRequest, db: Session = Depe
     user = db.query(User).filter(User.email == body.email).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not user.is_active or user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akun user tidak aktif")
     if user.email_verified_at:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already verified")
 
@@ -137,7 +148,7 @@ def verify_otp_code(request: Request, body: OtpVerifyRequest, db: Session = Depe
     user.email_verified_at = now
     _clear_otp(user)
     db.commit()
-    token = create_access_token(user.id, user.role.value)
+    token = create_access_token(user.id, user.role.value if user.role else "user")
     return TokenResponse(token=token, user=_user_response(user, request))
 
 
@@ -176,7 +187,9 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db), _
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email is not verified. Please verify with the OTP code sent to your email.",
         )
-    token = create_access_token(user.id, user.role.value)
+    if not user.is_active or user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akun user tidak aktif")
+    token = create_access_token(user.id, user.role.value if user.role else "user")
     return TokenResponse(token=token, user=_user_response(user, request))
 
 
@@ -208,6 +221,8 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db), 
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email belum diverifikasi. Silakan verifikasi dulu.",
         )
+    if not user.is_active or user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akun user tidak aktif")
     if not can_resend(user.email):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -233,6 +248,8 @@ def verify_reset_code(body: VerifyResetRequest, db: Session = Depends(get_db), _
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if not user.email_verified_at:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email is not verified. Please verify your email first.")
+    if not user.is_active or user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akun user tidak aktif")
     now = _now_naive()
     if not user.otp_code or not user.otp_expires_at:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="No reset code found. Request a new one.")
@@ -260,6 +277,8 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db), _r
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if not user.email_verified_at:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email is not verified. Please verify your email first.")
+    if not user.is_active or user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akun user tidak aktif")
     now = _now_naive()
     if not user.otp_code or not user.otp_expires_at:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="No reset code found. Request a new one.")

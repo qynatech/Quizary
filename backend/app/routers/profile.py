@@ -9,7 +9,7 @@ from app.models.form import Form as FormModel
 from app.models.image import Image
 from app.models.question import Question
 from app.models.question_option import QuestionOption
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.crypto import decrypt_gemini_key, encrypt_gemini_key, mask_key
 from app.schemas.ai import GeminiKeyPutRequest, GeminiKeySaveResponse, GeminiKeyStatusResponse
 from app.schemas.auth import MessageResponse, UserResponse
@@ -26,7 +26,8 @@ def _user_response(user: User, request: Request) -> UserResponse:
         id=user.id,
         name=user.name,
         email=user.email,
-        role=user.role.value,
+        role=user.role.value if user.role else UserRole.user.value,
+        is_active=user.is_active,
         avatar=file_url(request, user.avatar),
     )
 

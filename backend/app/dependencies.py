@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import decode_access_token, token_is_revoked
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.form import Form
 
 security = HTTPBearer(auto_error=False)
@@ -22,6 +22,16 @@ async def get_current_user(
     user = db.get(User, int(payload["sub"]))
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not user.is_active or user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Akun user tidak aktif")
+    return user
+
+
+async def get_current_admin(
+    user: User = Depends(get_current_user),
+) -> User:
+    if user.role != UserRole.admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user
 
 
@@ -48,4 +58,6 @@ async def get_optional_user(
     if payload is None or token_is_revoked(db, payload):
         return None
     user = db.get(User, int(payload["sub"]))
+    if not user or not user.is_active or user.deleted_at is not None:
+        return None
     return user

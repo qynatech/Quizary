@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum as SAEnum
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Enum as SAEnum
 from sqlalchemy.orm import relationship
 import enum
 
@@ -18,6 +18,8 @@ class User(Base):
     email = Column(String(150), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
     role = Column(SAEnum(UserRole), default=UserRole.user)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     avatar = Column(String(255), nullable=True)
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
     otp_code = Column(String(64), nullable=True)

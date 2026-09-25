@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from app.routers import auth, categories, forms, questions, profile, public_access, submissions, results, import_questions, ai
+from app.routers import admin, auth, categories, forms, questions, profile, public_access, submissions, results, import_questions, ai
 from app.utils import UPLOAD_DIR
 
 app = FastAPI(title="Quizary API")
@@ -166,6 +166,7 @@ async def catch_all_handler(request: Request, exc: Exception):
     )
 
 
+app.include_router(admin.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(forms.router, prefix="/api")

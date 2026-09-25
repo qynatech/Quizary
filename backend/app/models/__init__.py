@@ -11,3 +11,4 @@ from app.models.submission_question_order import SubmissionQuestionOrder
 from app.models.submission_option_order import SubmissionOptionOrder
 from app.models.revoked_token import RevokedToken
 from app.models.ai_generation import AiGeneration
+from app.models.app_setting import AppSetting
