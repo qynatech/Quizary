@@ -205,7 +205,11 @@ export default function AnswerQuiz() {
   const [fileAnswers, setFileAnswers] = useState({})   // { [qId]: { url, filename } }
   const [uploading, setUploading] = useState({})       // { [qId]: true } saat upload berjalan
   const [removingFile, setRemovingFile] = useState({}) // { [qId]: true } saat hapus berjalan
-  const [reviewed, setReviewed] = useState({})
+  // ponytail: mark ragu-ragu persisten per submission — reload browser tidak hilang, dihapus saat sesi selesai
+  const marksKey = `quizary_marks_${submissionId}`
+  const [reviewed, setReviewed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`quizary_marks_${submissionId}`)) || {} } catch { return {} }
+  })
   const [showMap, setShowMap] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -281,6 +285,7 @@ export default function AnswerQuiz() {
     if (aa) { aa.pause(); aa.currentTime = 0 }
     // Sesi selesai (submit / timeout / cheating) — draft offline tak berguna lagi.
     clearDraft(submissionId)
+    try { localStorage.removeItem(`quizary_marks_${submissionId}`) } catch {}
     // Keluar dari fullscreen saat selesai (semua jalur: submit, timeout, cheating).
     const ex = document.exitFullscreen || document.webkitExitFullscreen
     if (ex) Promise.resolve(ex.call(document)).catch(() => { })
@@ -1038,7 +1043,12 @@ export default function AnswerQuiz() {
   }
 
   const toggleReview = (qId) => {
-    setReviewed((r) => ({ ...r, [qId]: !r[qId] }))
+    setReviewed((r) => {
+      const n = { ...r, [qId]: !r[qId] }
+      if (!n[qId]) delete n[qId]
+      try { localStorage.setItem(marksKey, JSON.stringify(n)) } catch {}
+      return n
+    })
   }
 
   // Verifikasi password ke server — keyword tidak pernah dikirim ke klien,
