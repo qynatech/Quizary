@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Platform, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Battery from 'expo-battery';
-import NetInfo from '@react-native-community/netinfo';
 import { useAppTheme } from '../../context/ThemeContext';
+// Safe dynamic loading for native modules (prevents crashes if APK was built without them)
+let NativeBattery: any = null;
+try {
+  NativeBattery = require('expo-battery');
+} catch {
+  NativeBattery = null;
+}
+
+let NativeNetInfo: any = null;
+try {
+  const netModule = require('@react-native-community/netinfo');
+  NativeNetInfo = netModule?.default || netModule;
+} catch {
+  NativeNetInfo = null;
+}
 
 interface DeviceInfoBarProps {
   themeColor?: string;
@@ -25,44 +38,68 @@ export function DeviceInfoBar({
   const [isCharging, setIsCharging] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(true);
   const [connectionType, setConnectionType] = useState<string>('unknown');
+  const [netDetails, setNetDetails] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState<string>('');
 
   useEffect(() => {
     let isMounted = true;
+    let batteryLevelSub: any = null;
+    let batteryStateSub: any = null;
+    let unsubscribeNet: (() => void) | null = null;
 
     // 1. Initial Battery Check & Listener
-    (async () => {
+    if (NativeBattery && typeof NativeBattery.getBatteryLevelAsync === 'function') {
+      (async () => {
+        try {
+          const level = await NativeBattery.getBatteryLevelAsync();
+          if (isMounted && typeof level === 'number' && level >= 0) {
+            setBatteryLevel(Math.round(level * 100));
+          }
+          const state = await NativeBattery.getBatteryStateAsync();
+          if (isMounted) {
+            setIsCharging(
+              state === NativeBattery.BatteryState?.CHARGING ||
+              state === NativeBattery.BatteryState?.FULL
+            );
+          }
+        } catch {}
+      })();
+
       try {
-        const level = await Battery.getBatteryLevelAsync();
-        if (isMounted && typeof level === 'number' && level >= 0) {
-          setBatteryLevel(Math.round(level * 100));
-        }
-        const state = await Battery.getBatteryStateAsync();
-        if (isMounted) {
-          setIsCharging(state === Battery.BatteryState.CHARGING || state === Battery.BatteryState.FULL);
-        }
+        batteryLevelSub = NativeBattery.addBatteryLevelListener?.(({ batteryLevel }: any) => {
+          if (isMounted && typeof batteryLevel === 'number' && batteryLevel >= 0) {
+            setBatteryLevel(Math.round(batteryLevel * 100));
+          }
+        });
       } catch {}
-    })();
 
-    const batteryLevelSub = Battery.addBatteryLevelListener(({ batteryLevel }) => {
-      if (isMounted && typeof batteryLevel === 'number' && batteryLevel >= 0) {
-        setBatteryLevel(Math.round(batteryLevel * 100));
-      }
-    });
-
-    const batteryStateSub = Battery.addBatteryStateListener(({ batteryState }) => {
-      if (isMounted) {
-        setIsCharging(batteryState === Battery.BatteryState.CHARGING || batteryState === Battery.BatteryState.FULL);
-      }
-    });
+      try {
+        batteryStateSub = NativeBattery.addBatteryStateListener?.(({ batteryState }: any) => {
+          if (isMounted) {
+            setIsCharging(
+              batteryState === NativeBattery.BatteryState?.CHARGING ||
+              batteryState === NativeBattery.BatteryState?.FULL
+            );
+          }
+        });
+      } catch {}
+    } else {
+      // Fallback jika belum di-compile ke APK
+      if (isMounted) setBatteryLevel(100);
+    }
 
     // 2. NetInfo Listener
-    const unsubscribeNet = NetInfo.addEventListener((state) => {
-      if (isMounted) {
-        setIsConnected(state.isConnected);
-        setConnectionType(state.type || 'unknown');
-      }
-    });
+    if (NativeNetInfo && typeof NativeNetInfo.addEventListener === 'function') {
+      try {
+        unsubscribeNet = NativeNetInfo.addEventListener((state: any) => {
+          if (isMounted) {
+            setIsConnected(state.isConnected);
+            setConnectionType(state.type || 'unknown');
+            setNetDetails(state.details);
+          }
+        });
+      } catch {}
+    }
 
     // 3. Real-Time Clock Timer
     const updateTime = () => {
@@ -81,9 +118,9 @@ export function DeviceInfoBar({
 
     return () => {
       isMounted = false;
-      batteryLevelSub.remove();
-      batteryStateSub.remove();
-      unsubscribeNet();
+      try { batteryLevelSub?.remove?.(); } catch {}
+      try { batteryStateSub?.remove?.(); } catch {}
+      try { unsubscribeNet?.(); } catch {}
       clearInterval(clockInterval);
     };
   }, [showSeconds]);
@@ -105,11 +142,22 @@ export function DeviceInfoBar({
   };
 
   // Connection icon & text
+  const getNetworkIcon = (): keyof typeof Ionicons.glyphMap => {
+    if (isConnected === false) return 'cloud-offline-outline';
+    const typeUpper = (connectionType || '').toUpperCase();
+    if (typeUpper === 'CELLULAR') return 'cellular-outline';
+    if (typeUpper === 'WIFI') return 'wifi-outline';
+    return isConnected ? 'wifi-outline' : 'alert-circle-outline';
+  };
+
   const getNetworkLabel = () => {
     if (isConnected === false) return 'Offline';
     const typeUpper = (connectionType || '').toUpperCase();
     if (typeUpper === 'WIFI') return 'WiFi';
-    if (typeUpper === 'CELLULAR') return 'Data Seluler';
+    if (typeUpper === 'CELLULAR') {
+      const gen = netDetails?.cellularGeneration ? String(netDetails.cellularGeneration).toUpperCase() : '';
+      return gen ? `Seluler ${gen}` : 'Seluler';
+    }
     if (typeUpper === 'ETHERNET') return 'LAN';
     return isConnected ? 'Online' : 'Offline';
   };
@@ -140,7 +188,7 @@ export function DeviceInfoBar({
       {/* 2. Network & Internet Status */}
       <View style={styles.infoItem}>
         <Ionicons
-          name={isConnected ? 'wifi-outline' : 'alert-circle-outline'}
+          name={getNetworkIcon()}
           size={13}
           color={isConnected ? '#10B981' : '#EF4444'}
         />

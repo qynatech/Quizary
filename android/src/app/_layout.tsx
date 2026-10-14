@@ -132,7 +132,9 @@ function RootStack() {
         <Stack.Screen name="index" />
         <Stack.Screen name="register" />
         <Stack.Screen name="verify_otp" />
+        <Stack.Screen name="forgot_password" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="quiz" />
       </Stack>
     </ThemeProvider>
   );

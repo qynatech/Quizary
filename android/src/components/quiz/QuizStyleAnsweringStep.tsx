@@ -444,19 +444,19 @@ export function QuizStyleAnsweringStep({
 
       {/* TOP HEADER BAR */}
       <View style={[styles.headerBar, { backgroundColor: themeColor, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.14)' }]}>
-      <View style={{ marginTop: 10 }}>
+        <View style={{ marginBottom: 10 }}>
           <DeviceInfoBar
             themeColor="#FFF"
             darkBackground={true}
             compact={true}
             containerStyle={{
-              backgroundColor: 'rgba(0, 0, 0, 0.2)',
-              borderColor: 'rgba(255, 255, 255, 0.18)',
+              backgroundColor: 'rgba(0, 0, 0, 0.22)',
+              borderColor: 'rgba(255, 255, 255, 0.22)',
               width: '100%',
             }}
           />
         </View>
-      </View>
+
         {/* Row 1: Info (i), Quiz Title, and Timer Pill */}
         <View style={[styles.headerRowTop, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32 }]}>
           <TouchableOpacity
@@ -546,9 +546,9 @@ export function QuizStyleAnsweringStep({
             style={[
               styles.mapSelectorBtn,
               {
-                backgroundColor: 'rgba(255, 255, 255, 0.22)',
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
                 borderWidth: 1.5,
-                borderColor: 'rgba(255, 255, 255, 0.4)',
+                borderColor: 'rgba(255, 255, 255, 0.45)',
               },
             ]}
             onPress={() => setShowMapModal(true)}
@@ -562,6 +562,7 @@ export function QuizStyleAnsweringStep({
             <Ionicons name="chevron-down" size={12} color="#FFF" style={{ opacity: 0.9 }} />
           </TouchableOpacity>
         </View>
+      </View>
 
 
       {/* MAIN QUESTION CONTAINER — keyboard aware: behavior height on Android + dynamic padding */}
@@ -1138,16 +1139,16 @@ export function QuizStyleAnsweringStep({
               styles.jumpGridBtn,
               {
                 backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-                borderColor: isDark ? '#334155' : '#CBD5E1',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#CBD5E1',
               },
             ]}
             onPress={() => setShowMapModal(true)}
             activeOpacity={0.8}
-            accessibilityLabel="Peta Soal"
+            accessibilityLabel="Daftar Soal"
           >
-            <Ionicons name="grid" size={16} color={themeColor} />
+            <Ionicons name="apps-outline" size={16} color={themeColor} />
             <Text style={[styles.jumpGridBtnText, { color: colors.text, fontSize: 13 * fontSizeScale }]}>
-              {language === 'ID' ? 'Peta Soal' : 'Questions'}
+              {language === 'ID' ? 'Daftar Soal' : 'Questions'}
             </Text>
           </TouchableOpacity>
 
